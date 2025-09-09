@@ -33,6 +33,8 @@
   <include package=".upgrade" />
   <include package=".utilities" />
   <include package=".vocabularies" />
+  <include package="z3c.form" />
+  <include package="z3c.formui" />
   <include package=".z3cform" />
 
   <!-- portal skins -->
