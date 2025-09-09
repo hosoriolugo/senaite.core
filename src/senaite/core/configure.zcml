@@ -11,8 +11,9 @@
   <five:registerPackage package="." initialize=".initialize" />
   <i18n:registerTranslations directory="locales" />
 
-  <!-- z3c.form must come first -->
+  <!-- z3c.form debe cargarse primero -->
   <include package="z3c.form" />
+  <include package="z3c.form" file="meta.zcml" />
   <include package="z3c.formui" />
   <include package="z3c.form.browser" file="configure.zcml" />
 
