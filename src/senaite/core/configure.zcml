@@ -13,6 +13,10 @@
   <!-- Required for referenceable behavior in content types -->
   <include package="plone.app.referenceablebehavior" />
 
+  <!-- z3c.form must come first -->
+  <include package="z3c.form" />
+  <include package="z3c.formui" />
+
   <!-- package includes -->
   <include package=".adapters" />
   <include package=".astm" />
@@ -33,8 +37,6 @@
   <include package=".upgrade" />
   <include package=".utilities" />
   <include package=".vocabularies" />
-  <include package="z3c.form" />
-  <include package="z3c.formui" />
   <include package=".z3cform" />
 
   <!-- portal skins -->
