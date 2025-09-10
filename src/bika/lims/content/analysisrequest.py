@@ -83,6 +83,7 @@ from Products.CMFCore.permissions import View
 from Products.CMFCore.utils import getToolByName
 from Products.CMFPlone.utils import _createObjectByType
 from Products.CMFPlone.utils import safe_unicode
+from Products.CMFPlone.utils import getSiteTimezone
 from senaite.core.browser.fields.datetime import DateTimeField
 from senaite.core.browser.fields.records import RecordsField
 from senaite.core.browser.widgets.referencewidget import ReferenceWidget
@@ -1947,13 +1948,14 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
         # noinspection PyCallingNonCallable
         return DateTime()
 
-        security.declarePublic('getDefaultDateSampled')
+    security.declarePublic('getDefaultDateSampled')
     def getDefaultDateSampled(self):
-        """Devuelve fecha/hora por defecto para DateSampled."""
-        created = api.get_creation_date(self)
-        if not self.getSamplingWorkflowEnabled():
-            return created or DateTime()
-        return DateTime()
+    """Devuelve fecha/hora por defecto para DateSampled en la zona horaria del portal."""
+    tz = getSiteTimezone()
+    created = api.get_creation_date(self)
+    if not self.getSamplingWorkflowEnabled():
+        return created or DateTime().toZone(tz)
+    return DateTime().toZone(tz)
 
     def getWorksheets(self, full_objects=False):
         """Returns the worksheets that contains analyses from this Sample
