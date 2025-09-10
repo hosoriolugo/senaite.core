@@ -1950,7 +1950,8 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
 
     security.declarePublic('getDefaultDateSampled')
     def getDefaultDateSampled(self):
-    """Devuelve fecha/hora por defecto para DateSampled en la zona horaria del portal."""
+    """Devuelve fecha/hora por defecto para DateSampled en la zona horaria del portal
+    """
     tz = getSiteTimezone()
     created = api.get_creation_date(self)
     if not self.getSamplingWorkflowEnabled():
