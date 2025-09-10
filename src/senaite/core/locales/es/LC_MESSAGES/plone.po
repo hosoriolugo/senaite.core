@@ -22,7 +22,7 @@ msgstr ""
 
 #: senaite/core/browser/user/templates/account-panel.pt:16
 msgid "${action/title}"
-msgstr ""
+msgstr "${acción/título}"
 
 #: senaite/core/browser/quickinstaller/templates/quickinstaller.pt:167
 msgid "Activated add-ons"
@@ -244,12 +244,12 @@ msgstr "Se han definido aquí portlets antiguos. Haga clic en el botón para con
 #. Default: "Next ${number} items"
 #: senaite/core/browser/batching/templates/batchnavigation.pt:85
 msgid "batch_next_x_items"
-msgstr ""
+msgstr "lote_próximos_x_elementos"
 
 #. Default: "Previous ${number} items"
 #: senaite/core/browser/batching/templates/batchnavigation.pt:19
 msgid "batch_previous_x_items"
-msgstr ""
+msgstr "lote_anterior_x_elementos"
 
 #. Default: "Add action"
 #: senaite/core/browser/contentrules/templates/manage-elements.pt:183
@@ -400,7 +400,7 @@ msgstr "Las cookies no han sido habilitadas. Debe habilitar las cookies antes de
 #. Default: "File already uploaded:"
 #: senaite/core/z3cform/widgets/datagrid/datagridrow_file_input.pt:19
 msgid "file_already_uploaded"
-msgstr ""
+msgstr "archivo ya cargado"
 
 #. Default: "Get help"
 #: senaite/core/browser/login/templates/login.pt:105
