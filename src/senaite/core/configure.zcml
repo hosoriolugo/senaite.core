@@ -5,32 +5,10 @@
     xmlns:five="http://namespaces.zope.org/five"
     xmlns:genericsetup="http://namespaces.zope.org/genericsetup"
     xmlns:i18n="http://namespaces.zope.org/i18n"
-    xmlns:z3c="http://namespaces.zope.org/z3c"
-    xmlns:tales="http://namespaces.zope.org/tales"
     i18n_domain="senaite.core">
 
-  <!-- Registrar paquete principal -->
   <five:registerPackage package="." initialize=".initialize" />
   <i18n:registerTranslations directory="locales" />
-
-  <!-- TALES debe estar primero -->
-  <include package="zope.tales" file="meta.zcml" />
-  <include package="zope.tales" />
-
-  <!-- PageTemplate (registra expresión tales) -->
-  <include package="zope.app.pagetemplate" file="meta.zcml" />
-  <include package="zope.app.pagetemplate" />
-
-  <!-- z3c.form y dependencias -->
-  <include package="z3c.form" file="meta.zcml" />
-  <include package="z3c.form" />
-
-  <include package="z3c.formui" file="meta.zcml" />
-  <include package="z3c.formui" />
-
-  <!-- Macro (ahora sí, después de tales y pagetemplate) -->
-  <include package="z3c.macro" file="meta.zcml" />
-  <include package="z3c.macro" />
 
   <!-- Required for referenceable behavior in content types -->
   <include package="plone.app.referenceablebehavior" />
@@ -47,7 +25,7 @@
   <include package=".extender" />
   <include package=".idserver" />
   <include package=".migration" />
-<!-- <include package=".patches" /> -->
+  <include package=".patches" />
   <include package=".permissions" />
   <include package=".registry" />
   <include package=".schema" />
