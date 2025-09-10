@@ -83,7 +83,8 @@ from Products.CMFCore.permissions import View
 from Products.CMFCore.utils import getToolByName
 from Products.CMFPlone.utils import _createObjectByType
 from Products.CMFPlone.utils import safe_unicode
-from Products.CMFPlone.utils import getSiteTimezone
+from zope.component import getUtility
+from Products.CMFPlone.interfaces import ISiteRoot
 from senaite.core.browser.fields.datetime import DateTimeField
 from senaite.core.browser.fields.records import RecordsField
 from senaite.core.browser.widgets.referencewidget import ReferenceWidget
@@ -1950,7 +1951,12 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
 
     security.declarePublic('getDefaultDateSampled')
     def getDefaultDateSampled(self):
-        tz = getSiteTimezone()
+        from zope.component import getUtility
+        from Products.CMFPlone.interfaces import ISiteRoot
+
+        portal = getUtility(ISiteRoot)
+        tz = portal.getProperty('timezone', 'UTC')
+
         created = api.get_creation_date(self)
         if not self.getSamplingWorkflowEnabled():
             return created or DateTime().toZone(tz)
