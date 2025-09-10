@@ -1950,11 +1950,11 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
 
     security.declarePublic('getDefaultDateSampled')
     def getDefaultDateSampled(self):
-    tz = getSiteTimezone()
-    created = api.get_creation_date(self)
-    if not self.getSamplingWorkflowEnabled():
-        return created or DateTime().toZone(tz)
-    return DateTime().toZone(tz)
+        tz = getSiteTimezone()
+        created = api.get_creation_date(self)
+        if not self.getSamplingWorkflowEnabled():
+            return created or DateTime().toZone(tz)
+        return DateTime().toZone(tz)
 
     def getWorksheets(self, full_objects=False):
         """Returns the worksheets that contains analyses from this Sample
