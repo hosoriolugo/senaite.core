@@ -12,10 +12,12 @@
   <i18n:registerTranslations directory="locales" />
 
   <!-- z3c.form debe cargarse primero -->
+  <include package="z3c.macro" file="meta.zcml" />
+  <include package="z3c.macro" />
+  <include package="z3c.formui" file="meta.zcml" />
   <include package="z3c.form" file="meta.zcml" />
-  <include package="z3c.form" />
   <include package="z3c.formui" />
-  <include package="z3c.form.browser" file="configure.zcml" />
+  <include package="z3c.form" />
 
   <!-- Required for referenceable behavior in content types -->
   <include package="plone.app.referenceablebehavior" />
