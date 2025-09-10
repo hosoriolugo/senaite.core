@@ -12,6 +12,10 @@
   <i18n:registerTranslations directory="locales" />
 
   <!-- z3c.form debe cargarse primero -->
+  <include package="zope.tales" file="meta.zcml" />
+  <include package="zope.tales" />
+  <include package="zope.app.pagetemplate" file="meta.zcml" />
+  <include package="zope.app.pagetemplate" />
   <include package="z3c.macro" file="meta.zcml" />
   <include package="z3c.macro" />
   <include package="z3c.formui" file="meta.zcml" />
