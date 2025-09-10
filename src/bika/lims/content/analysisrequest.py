@@ -425,6 +425,7 @@ schema = BikaSchema.copy() + Schema((
     DateTimeField(
         'DateSampled',
         mode="rw",
+        default_method='getDefaultDateSampled',
         max="getMaxDateSampled",
         read_permission=View,
         write_permission=FieldEditDateSampled,
@@ -1944,6 +1945,14 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
         """return current date
         """
         # noinspection PyCallingNonCallable
+        return DateTime()
+
+        security.declarePublic('getDefaultDateSampled')
+    def getDefaultDateSampled(self):
+        """Devuelve fecha/hora por defecto para DateSampled."""
+        created = api.get_creation_date(self)
+        if not self.getSamplingWorkflowEnabled():
+            return created or DateTime()
         return DateTime()
 
     def getWorksheets(self, full_objects=False):
