@@ -22,7 +22,7 @@ msgstr ""
 
 #: senaite/core/browser/user/templates/account-panel.pt:16
 msgid "${action/title}"
-msgstr "${acción/título}"
+msgstr "${action/title}"
 
 #: senaite/core/browser/quickinstaller/templates/quickinstaller.pt:167
 msgid "Activated add-ons"
@@ -127,7 +127,7 @@ msgstr "Activar"
 
 #: senaite/core/profiles/default/registry.xml
 msgid "Relative URL for the SENAITE toolbar logo"
-msgstr "URL relativo basado en el sitio SENAITE para el logo de la barra de herramientas"
+msgstr "URL relativo basado en el sitio INFOLABSA para el logo de la barra de herramientas"
 
 #: senaite/core/browser/sharing/templates/client_sharing.pt:67
 msgid "Search for user or group"
@@ -244,12 +244,12 @@ msgstr "Se han definido aquí portlets antiguos. Haga clic en el botón para con
 #. Default: "Next ${number} items"
 #: senaite/core/browser/batching/templates/batchnavigation.pt:85
 msgid "batch_next_x_items"
-msgstr "lote_próximos_x_elementos"
+msgstr "batch_next_x_items"
 
 #. Default: "Previous ${number} items"
 #: senaite/core/browser/batching/templates/batchnavigation.pt:19
 msgid "batch_previous_x_items"
-msgstr "lote_anterior_x_elementos"
+msgstr "batch_previous_x_items"
 
 #. Default: "Add action"
 #: senaite/core/browser/contentrules/templates/manage-elements.pt:183
@@ -328,7 +328,7 @@ msgstr "Esta regla ha sido asignada a las siguientes ubicaciones:"
 #. Default: "Configuration area for Plone and add-on Products."
 #: senaite/core/browser/controlpanel/templates/overview.pt:19
 msgid "description_control_panel"
-msgstr "Área de configuración para SENAITE y productos adicionales."
+msgstr "Área de configuración para INFOLABSA y productos adicionales."
 
 #. Default: "Required for the language selector viewlet to be rendered."
 #: senaite/core/profiles/default/registry.xml
@@ -385,7 +385,7 @@ msgstr "Si desea bloquear o desbloquear ciertas categorías de portlets, puede h
 #. Default: "You are running in \"production mode\". This is the preferred mode of operation for a live Plone site, but means that some configuration changes will not take effect until your server is restarted or a product refreshed. If this is a development instance, and you want to enable debug mode, stop the server, set 'debug-mode=on' in your buildout.cfg, re-run bin/buildout and then restart the server process."
 #: senaite/core/browser/controlpanel/templates/overview.pt:155
 msgid "description_production_mode"
-msgstr "Está corriendo en \"modo de producción\". Este es el modo preferido de operación para un sitio SENAITE en producción, pero implica que algunos cambios a la configuración no tomarán efecto hasta que su servidor sea reiniciado o un producto sea actualizado. Si esta instancia es de desarrollo y quiere habilitar el modo de depuración, detenga su servidor, establezca 'debug-mode=on' en su buildout.cfg, ejecute de nuevo bin/buildout y reinicie el proceso servidor."
+msgstr "Está corriendo en \"modo de producción\". Este es el modo preferido de operación para un sitio INFOLABSA en producción, pero implica que algunos cambios a la configuración no tomarán efecto hasta que su servidor sea reiniciado o un producto sea actualizado. Si esta instancia es de desarrollo y quiere habilitar el modo de depuración, detenga su servidor, establezca 'debug-mode=on' en su buildout.cfg, ejecute de nuevo bin/buildout y reinicie el proceso servidor."
 
 #. Default: "Grant access for users or groups <div class=\"font-italic\"> Access should be granted only to the client group below. <br /> Client contacts which are linked to a user account will be automatically added to this group and have therefore the same roles granted immediately. <br /> Other granted access to users or groups will only affect new created contents. </div>"
 #: senaite/core/browser/sharing/templates/client_sharing.pt:43
@@ -400,7 +400,7 @@ msgstr "Las cookies no han sido habilitadas. Debe habilitar las cookies antes de
 #. Default: "File already uploaded:"
 #: senaite/core/z3cform/widgets/datagrid/datagridrow_file_input.pt:19
 msgid "file_already_uploaded"
-msgstr "archivo ya cargado"
+msgstr "file_already_uploaded"
 
 #. Default: "Get help"
 #: senaite/core/browser/login/templates/login.pt:105
