@@ -1944,37 +1944,29 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
             if contact:
                 contacts.append(contact)
         return contacts
+        
 
     security.declarePublic('current_date')
-
     def current_date(self):
-        """return current date
-        """
-        # noinspection PyCallingNonCallable
-        return DateTime()
-
-    def current_date(self):
-        """return current date
-        """
+        """return current date"""
         # noinspection PyCallingNonCallable
         return DateTime()
 
     security.declarePublic('getDefaultDateSampled')
     def getDefaultDateSampled(self):
-        from zope.component import getUtility
-        try:
-            from Products.CMFPlone.interfaces import IPloneSiteRoot
-        except ImportError:
-            # Para versiones antiguas de Plone
-            from Products.CMFPlone.interfaces import ISiteRoot as IPloneSiteRoot
-
+        """Devuelve la fecha/hora por defecto para DateSampled en la TZ del portal"""
         portal = getUtility(IPloneSiteRoot)
-        tz = portal.getProperty('timezone', 'UTC')
+        tzname = portal.getProperty('timezone', 'UTC')
 
         created = api.get_creation_date(self)
         if not self.getSamplingWorkflowEnabled():
-            return created or DateTime().toZone(tz)
-        return DateTime().toZone(tz)
+            dt = created or DateTime()
+        else:
+            dt = DateTime()
+
+        # Convertir a la zona horaria configurada en el portal (ej. México)
+        return dt.toZone(tzname)
+
 
     def getWorksheets(self, full_objects=False):
         """Returns the worksheets that contains analyses from this Sample
