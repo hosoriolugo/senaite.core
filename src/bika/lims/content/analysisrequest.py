@@ -137,12 +137,27 @@ from six.moves.urllib.parse import urljoin
 from zope.interface import alsoProvides
 from zope.interface import implements
 from zope.interface import noLongerProvides
-from AccessControl import ClassSecurityInfo
 
 
 IMG_SRC_RX = re.compile(r'<img.*?src="(.*?)"')
 IMG_DATA_SRC_RX = re.compile(r'<img.*?src="(data:image/.*?;base64,)(.*?)"')
 FINAL_STATES = ["published", "retracted", "rejected", "cancelled"]
+
+
+# --- NUEVO: función global para default_method ---
+def current_date():
+    """Devuelve la fecha/hora actual en la zona horaria configurada del portal"""
+    from zope.component import getUtility
+    try:
+        from Products.CMFPlone.interfaces import IPloneSiteRoot
+    except ImportError:
+        from Products.CMFPlone.interfaces import ISiteRoot as IPloneSiteRoot
+    from DateTime import DateTime
+
+    portal = getUtility(IPloneSiteRoot)
+    tzname = portal.getProperty('timezone', 'UTC')
+    return DateTime().toZone(tzname)
+# --- FIN NUEVO ---
 
 
 # SCHEMA DEFINITION
@@ -433,7 +448,7 @@ schema = BikaSchema.copy() + Schema((
     DateTimeField(
         'DateSampled',
         mode="rw",
-        default_method='getDefaultDateSampled',
+        default_method=current_date,
         max="getMaxDateSampled",
         read_permission=View,
         write_permission=FieldEditDateSampled,
@@ -493,30 +508,6 @@ schema = BikaSchema.copy() + Schema((
             render_own_label=True,
         ),
     ),
-
-DateTimeField(
-    'DateSampled',
-    mode="rw",
-    default_method='current_date',  # ahora lo encuentra como método de clase
-    max="getMaxDateSampled",
-    read_permission=View,
-    write_permission=FieldEditDateSampled,
-    widget=DateTimeWidget(
-        label=_("label_sample_datesampled", default="Date Sampled"),
-        description=_(
-            "description_sample_datesampled",
-            default="The date when the sample was taken"
-        ),
-        size=20,
-        show_time=True,
-        visible={
-            'add': 'edit',
-            'secondary': 'disabled',
-            'header_table': 'prominent',
-        },
-        render_own_label=True,
-    ),
-),
 
 
 
@@ -1947,29 +1938,6 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
             if contact:
                 contacts.append(contact)
         return contacts
-
-class AnalysisRequest(BaseFolder, ClientAwareMixin):
-    implements(IAnalysisRequest, ICancellable)
-    security = ClassSecurityInfo()
-    displayContentsTab = False
-    schema = schema
-
-    @security.public
-    def current_date(self):
-        """Devuelve la fecha/hora actual en la zona horaria configurada del portal"""
-        from zope.component import getUtility
-        try:
-            from Products.CMFPlone.interfaces import IPloneSiteRoot
-        except ImportError:
-            from Products.CMFPlone.interfaces import ISiteRoot as IPloneSiteRoot
-        from DateTime import DateTime
-
-        # Obtener la zona horaria configurada en el portal
-        portal = getUtility(IPloneSiteRoot)
-        tzname = portal.getProperty('timezone', 'UTC')
-
-        # Devolver la fecha actual en esa zona horaria
-        return DateTime().toZone(tzname)
 
 
     def getWorksheets(self, full_objects=False):
