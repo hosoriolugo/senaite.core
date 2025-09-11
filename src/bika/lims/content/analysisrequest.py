@@ -1972,20 +1972,21 @@ def getDefaultDateSampled(self):
 
     # Obtener la fecha de creación si existe
     created = api.get_creation_date(self)
-    if created:
-        created = DateTime(created).toZone(tzname)
+    if created and not isinstance(created, DateTime):
+        created = DateTime(created)
 
-    # Determinar la fecha base según el flujo de trabajo de muestreo
+    # Determinar la fecha base
     if not self.getSamplingWorkflowEnabled():
         dt = created or DateTime()
     else:
         dt = DateTime()
 
-    # Convertir siempre a la TZ del portal
+    # Convertir siempre a la zona horaria del portal
     dt = DateTime(dt).toZone(tzname)
 
     logger.info("Fecha final para DateSampled: %s", dt)
     return dt
+
 
 
 
