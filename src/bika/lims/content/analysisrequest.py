@@ -502,10 +502,7 @@ DateTimeField(
     read_permission=View,
     write_permission=FieldEditDateSampled,
     widget=DateTimeWidget(
-        label=_(
-            "label_sample_datesampled",
-            default="Date Sampled"
-        ),
+        label=_("label_sample_datesampled", default="Date Sampled"),
         description=_(
             "description_sample_datesampled",
             default="The date when the sample was taken"
@@ -1950,22 +1947,22 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
                 contacts.append(contact)
         return contacts
 
-    security.declarePublic('current_date')
-    def current_date(self):
-        """Devuelve la fecha/hora actual en la zona horaria configurada del portal"""
-        from zope.component import getUtility
-        try:
-            from Products.CMFPlone.interfaces import IPloneSiteRoot
-        except ImportError:
-            from Products.CMFPlone.interfaces import ISiteRoot as IPloneSiteRoot
-        from DateTime import DateTime
+# --- Ajuste para default_method de DateSampled ---
+def current_date(instance):
+    """Devuelve la fecha/hora actual en la zona horaria configurada del portal"""
+    from zope.component import getUtility
+    try:
+        from Products.CMFPlone.interfaces import IPloneSiteRoot
+    except ImportError:
+        from Products.CMFPlone.interfaces import ISiteRoot as IPloneSiteRoot
+    from DateTime import DateTime
 
-        # Obtener la zona horaria configurada en el portal
-        portal = getUtility(IPloneSiteRoot)
-        tzname = portal.getProperty('timezone', 'UTC')
+    # Obtener la zona horaria configurada en el portal
+    portal = getUtility(IPloneSiteRoot)
+    tzname = portal.getProperty('timezone', 'UTC')
 
-        # Devolver la fecha actual en esa zona horaria
-        return DateTime().toZone(tzname)
+    # Devolver la fecha actual en esa zona horaria
+    return DateTime().toZone(tzname)
 
 
     def getWorksheets(self, full_objects=False):
