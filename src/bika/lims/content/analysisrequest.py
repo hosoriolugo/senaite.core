@@ -21,6 +21,7 @@
 import base64
 import functools
 import re
+from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
 
@@ -83,12 +84,6 @@ from Products.CMFCore.permissions import View
 from Products.CMFCore.utils import getToolByName
 from Products.CMFPlone.utils import _createObjectByType
 from Products.CMFPlone.utils import safe_unicode
-from zope.component import getUtility
-try:
-    from Products.CMFPlone.interfaces import IPloneSiteRoot
-except ImportError:
-    # Para compatibilidad con versiones antiguas de Plone
-    from Products.CMFPlone.interfaces import ISiteRoot as IPloneSiteRoot
 from senaite.core.browser.fields.datetime import DateTimeField
 from senaite.core.browser.fields.records import RecordsField
 from senaite.core.browser.widgets.referencewidget import ReferenceWidget
@@ -426,22 +421,31 @@ schema = BikaSchema.copy() + Schema((
 
     # TODO Workflow - Request - Fix DateSampled inconsistencies...
 
-    DateTimeField(
-        'DateSampled',
-        mode="rw",
-        default_method="getDefaultDateSampled",
-        max="getMaxDateSampled",
-        read_permission=View,
-        write_permission=FieldEditDateSampled,
-        widget=DateTimeWidget(
-            label=_("label_sample_datesampled", default="Date Sampled"),
-            description=_("description_sample_datesampled", default="The date when the sample was taken"),
-            size=20,
-            show_time=True,
-            visible={'add': 'edit', 'secondary': 'disabled', 'header_table': 'prominent'},
-            render_own_label=True,
+DateTimeField(
+    'DateSampled',
+    mode="rw",
+    max="getMaxDateSampled",
+    read_permission=View,
+    write_permission=FieldEditDateSampled,
+    widget=DateTimeWidget(
+        label=_(
+            "label_sample_datesampled",
+            default="Date Sampled"
         ),
+        description=_(
+            "description_sample_datesampled",
+            default="The date when the sample was taken"
+        ),
+        size=20,
+        show_time=True,
+        visible={
+            'add': 'edit',
+            'secondary': 'disabled',
+            'header_table': 'prominent',
+        },
+        render_own_label=True,
     ),
+),
 
     StringField(
         'Sampler',
@@ -1738,39 +1742,6 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
             if contact:
                 contacts.append(contact)
         return contacts
-
-    def getDefaultDateSampled(self):
-        """Fecha/hora actual en la zona horaria del usuario o del portal."""
-        from DateTime import DateTime
-        from bika.lims import api
-
-        portal = api.get_portal()
-
-        # 1) TZ del usuario autenticado (si está definida)
-        mtool = api.get_tool('portal_membership')
-        member = mtool.getAuthenticatedMember() if mtool else None
-        user_tz = ''
-        if member:
-            user_tz = member.getProperty('timezone', '') or ''
-
-        # 2) TZ del portal (propiedad moderna o la antigua en portal_properties)
-        portal_tz = ''
-        if portal:
-            portal_tz = portal.getProperty('timezone', '') or ''
-            try:
-                props = portal.portal_properties.site_properties
-                portal_tz = portal_tz or props.getProperty('localTimeZone', '') or ''
-            except Exception:
-                pass
-
-        tz = user_tz or portal_tz or 'UTC'
-
-        now_utc = DateTime()  # DateTime por defecto está en UTC
-        try:
-            return now_utc.toZone(tz)
-        except Exception:
-            # Si la TZ fuese inválida por cualquier motivo, vuelve a UTC
-            return now_utc
 
     def getWorksheets(self, full_objects=False):
         analyses_uids = map(api.get_uid, self.getAnalyses())
