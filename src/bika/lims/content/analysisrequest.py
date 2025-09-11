@@ -1952,40 +1952,40 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
         # noinspection PyCallingNonCallable
         return DateTime()
 
-security.declarePublic('getDefaultDateSampled')
-def getDefaultDateSampled(self):
-    """Devuelve la fecha/hora por defecto para DateSampled en la TZ del portal"""
-    from zope.component import getUtility
-    try:
-        from Products.CMFPlone.interfaces import IPloneSiteRoot
-    except ImportError:
-        from Products.CMFPlone.interfaces import ISiteRoot as IPloneSiteRoot
-    from DateTime import DateTime
-    from bika.lims import api
-    import logging
+    security.declarePublic('getDefaultDateSampled')
+    def getDefaultDateSampled(self):
+        """Devuelve la fecha/hora por defecto para DateSampled en la TZ del portal"""
+        from zope.component import getUtility
+        try:
+            from Products.CMFPlone.interfaces import IPloneSiteRoot
+        except ImportError:
+            from Products.CMFPlone.interfaces import ISiteRoot as IPloneSiteRoot
+        from DateTime import DateTime
+        from bika.lims import api
+        import logging
 
-    # Obtener el portal y la zona horaria
-    portal = getUtility(IPloneSiteRoot)
-    tzname = portal.getProperty('timezone', 'UTC')
-    logger = logging.getLogger("bika.lims")
-    logger.info("Zona horaria configurada en el portal: %s", tzname)
+        # Obtener el portal y la zona horaria
+        portal = getUtility(IPloneSiteRoot)
+        tzname = portal.getProperty('timezone', 'UTC')
+        logger = logging.getLogger("bika.lims")
+        logger.info("Zona horaria configurada en el portal: %s", tzname)
 
-    # Obtener la fecha de creación si existe
-    created = api.get_creation_date(self)
-    if created and not isinstance(created, DateTime):
-        created = DateTime(created)
+        # Obtener la fecha de creación si existe
+        created = api.get_creation_date(self)
+        if created and not isinstance(created, DateTime):
+            created = DateTime(created)
 
-    # Determinar la fecha base
-    if not self.getSamplingWorkflowEnabled():
-        dt = created or DateTime()
-    else:
-        dt = DateTime()
+        # Determinar la fecha base
+        if not self.getSamplingWorkflowEnabled():
+            dt = created or DateTime()
+        else:
+            dt = DateTime()
 
-    # Convertir siempre a la zona horaria del portal
-    dt = DateTime(dt).toZone(tzname)
+        # Convertir siempre a la zona horaria del portal
+        dt = DateTime(dt).toZone(tzname)
 
-    logger.info("Fecha final para DateSampled: %s", dt)
-    return dt
+        logger.info("Fecha final para DateSampled: %s", dt)
+        return dt
 
 
 
