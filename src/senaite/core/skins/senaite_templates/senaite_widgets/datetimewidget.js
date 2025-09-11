@@ -11,20 +11,21 @@ document.addEventListener("DOMContentLoaded", () => {
       this.on_change = this.on_change.bind(this);
 
       // bind datefields
-      datefields.forEach((el, idx) => {
+      datefields.forEach((el) => {
         el.addEventListener("change", this.on_change);
       });
 
       // bind timefields
-      timefields.forEach((el, idx) => {
+      timefields.forEach((el) => {
         el.addEventListener("change", this.on_change);
       });
+
+      // 🔹 AUTOFILL inicial al cargar la página
+      this.autofill_now(datefields, timefields);
     }
 
     /**
      * set an input field value (if the field exists)
-     * @param {object} field input field
-     * @param {string} value the value the should get set on the field
      */
     set_field(field, value) {
       if (!field) return;
@@ -32,25 +33,18 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     /**
-      * generate a full date w/o TZ from the date and time inputs
-      * @param {object} date the date input field
-      * @param {object} time the time input field
-      * @param {object} hidden hidden field that contains the full date for from submission
-    */
+     * generate a full date w/o TZ from the date and time inputs
+     */
     update_date(date, time, input) {
-      // console.debug("DateTimeWidget::update_date");
       let ds = date ? date.value : "";
       let ts = time ? time.value : "";
 
-      // set the values of the fields
       this.set_field(date, ds);
       this.set_field(time, ts);
 
       if (ds && ts) {
-        // set date and time
         this.set_field(input, `${ds} ${ts}`);
       } else if (ds) {
-        // set date only
         this.set_field(input, `${ds}`);
       } else {
         this.set_field(input, "");
@@ -59,27 +53,51 @@ document.addEventListener("DOMContentLoaded", () => {
 
     /**
      * event handler for `change` event
-     *
-     * collect the date/time and hidden input of the field
-     * and set the full date for form submission.
-     *
-     * Fires when the date/time changes
-     * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/date
      */
     on_change(event) {
-      // console.debug("DateTimeWidget::on_change");
       let el = event.currentTarget;
       let target = el.getAttribute("target");
 
-      // for simplicity, we just fetch all the required elements here
       let date = el.parentElement.querySelector("input[type='date']");
       let time = el.parentElement.querySelector("input[type='time']");
       let input = document.querySelector(`input[name='${target}']`);
 
-      // always write the full date to the hidden field
       this.update_date(date, time, input);
+    }
+
+    /**
+     * 🔹 Rellenar automáticamente fecha/hora actuales
+     */
+    autofill_now(datefields, timefields) {
+      if (!datefields.length || !timefields.length) return;
+
+      let now = new Date(); // hora local del navegador
+
+      // formatear YYYY-MM-DD
+      let yyyy = now.getFullYear();
+      let mm = String(now.getMonth() + 1).padStart(2, "0");
+      let dd = String(now.getDate()).padStart(2, "0");
+      let dateStr = `${yyyy}-${mm}-${dd}`;
+
+      // formatear HH:MM (24h)
+      let hh = String(now.getHours()).padStart(2, "0");
+      let min = String(now.getMinutes()).padStart(2, "0");
+      let timeStr = `${hh}:${min}`;
+
+      datefields.forEach((df) => (df.value = dateStr));
+      timefields.forEach((tf) => (tf.value = timeStr));
+
+      // 🔹 Actualiza también el input oculto que usa el widget
+      timefields.forEach((tf) => {
+        let target = tf.getAttribute("target");
+        if (target) {
+          let hidden = document.querySelector(`input[name='${target}']`);
+          this.update_date(tf.parentElement.querySelector("input[type='date']"), tf, hidden);
+        }
+      });
     }
   }
 
   new DateTimeWidget();
 });
+
