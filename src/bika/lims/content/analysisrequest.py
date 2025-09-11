@@ -1952,7 +1952,7 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
         # noinspection PyCallingNonCallable
         return DateTime()
 
-@security.public
+security.declarePublic('getDefaultDateSampled')
 def getDefaultDateSampled(self):
     """Devuelve la fecha/hora por defecto para DateSampled en la TZ del portal"""
     from zope.component import getUtility
