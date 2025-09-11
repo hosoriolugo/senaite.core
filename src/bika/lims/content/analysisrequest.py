@@ -137,6 +137,8 @@ from six.moves.urllib.parse import urljoin
 from zope.interface import alsoProvides
 from zope.interface import implements
 from zope.interface import noLongerProvides
+from AccessControl import ClassSecurityInfo
+
 
 IMG_SRC_RX = re.compile(r'<img.*?src="(.*?)"')
 IMG_DATA_SRC_RX = re.compile(r'<img.*?src="(data:image/.*?;base64,)(.*?)"')
@@ -1944,58 +1946,63 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
             if contact:
                 contacts.append(contact)
         return contacts
-        
 
-security.declarePublic('current_date')
-def current_date(self):
-    """return current date in portal timezone"""
-    from zope.component import getUtility
-    try:
-        from Products.CMFPlone.interfaces import IPloneSiteRoot
-    except ImportError:
-        from Products.CMFPlone.interfaces import ISiteRoot as IPloneSiteRoot
-    from DateTime import DateTime
+    security.declarePublic('current_date')
+    def current_date(self):
+        """Devuelve la fecha/hora actual en la zona horaria del portal"""
+        from zope.component import getUtility
+        try:
+            from Products.CMFPlone.interfaces import IPloneSiteRoot
+        except ImportError:
+            from Products.CMFPlone.interfaces import ISiteRoot as IPloneSiteRoot
+        from DateTime import DateTime
 
-    portal = getUtility(IPloneSiteRoot)
-    tzname = portal.getProperty('timezone', 'UTC')
-    return DateTime().toZone(tzname)
+        portal = getUtility(IPloneSiteRoot)
+        tzname = portal.getProperty('timezone', 'UTC')
+        return DateTime().toZone(tzname)
 
+    security.declarePublic('getDefaultDateSampled')
+    def getDefaultDateSampled(self):
+        """Devuelve la fecha/hora por defecto para DateSampled en la TZ del portal"""
+        from zope.component import getUtility
+        try:
+            from Products.CMFPlone.interfaces import IPloneSiteRoot
+        except ImportError:
+            from Products.CMFPlone.interfaces import ISiteRoot as IPloneSiteRoot
+        from DateTime import DateTime
+        from bika.lims import api
+        import logging
 
-security.declarePublic('getDefaultDateSampled')
-def getDefaultDateSampled(self):
-    """Devuelve la fecha/hora por defecto para DateSampled en la TZ del portal"""
-    from zope.component import getUtility
-    try:
-        from Products.CMFPlone.interfaces import IPloneSiteRoot
-    except ImportError:
-        from Products.CMFPlone.interfaces import ISiteRoot as IPloneSiteRoot
-    from DateTime import DateTime
-    from bika.lims import api
-    import logging
+        # Obtener la zona horaria del portal
+        portal = getUtility(IPloneSiteRoot)
+        tzname = portal.getProperty('timezone', 'UTC')
+        logger = logging.getLogger("bika.lims")
+        logger.info("Zona horaria configurada en el portal: %s", tzname)
 
-    portal = getUtility(IPloneSiteRoot)
-    tzname = portal.getProperty('timezone', 'UTC')
-    logger = logging.getLogger("bika.lims")
-    logger.info("Zona horaria configurada en el portal: %s", tzname)
+        # Fecha de creación del objeto (si existe)
+        created = api.get_creation_date(self)
+        if created and not isinstance(created, DateTime):
+            created = DateTime(created)
 
-    created = api.get_creation_date(self)
-    if created and not isinstance(created, DateTime):
-        created = DateTime(created)
+        # Base para la fecha de muestreo
+        if not self.getSamplingWorkflowEnabled():
+            dt = created or DateTime()
+        else:
+            dt = DateTime()
 
-    if not self.getSamplingWorkflowEnabled():
-        dt = created or DateTime()
-    else:
-        dt = DateTime()
-
-    dt = DateTime(dt).toZone(tzname)
-    logger.info("Fecha final para DateSampled: %s", dt)
-    return dt
-
+        # Convertir siempre a la zona horaria configurada
+        dt = DateTime(dt).toZone(tzname)
+        logger.info("Fecha final para DateSampled: %s", dt)
+        return dt
 
     def getWorksheets(self, full_objects=False):
-        """Returns the worksheets that contains analyses from this Sample
-        """
-        # Get the Analyses UIDs of this Sample
+        """Returns the worksheets that contains analyses from this Sample"""
+        analyses_uids = map(api.get_uid, self.getAnalyses())
+        if not analyses_uids:
+            return []
+
+    def getWorksheets(self, full_objects=False):
+        """Returns the worksheets that contains analyses from this Sample"""
         analyses_uids = map(api.get_uid, self.getAnalyses())
         if not analyses_uids:
             return []
