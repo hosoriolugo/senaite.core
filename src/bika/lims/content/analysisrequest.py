@@ -1952,6 +1952,8 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
         # noinspection PyCallingNonCallable
         return DateTime()
 
+from AccessControl import security
+
 security.declarePublic('getDefaultDateSampled')
 def getDefaultDateSampled(self):
     """Devuelve la fecha/hora por defecto para DateSampled en la TZ del portal"""
@@ -1966,20 +1968,20 @@ def getDefaultDateSampled(self):
 
     # Obtener el portal y la zona horaria
     portal = getUtility(IPloneSiteRoot)
-    tzname = portal.getProperty('timezone', 'UTC')  # Asegúrate de que esté configurado como 'America/Mexico_City'
+    tzname = portal.getProperty('timezone', 'UTC')
     logger = logging.getLogger("bika.lims")
     logger.info("Zona horaria configurada en el portal: %s", tzname)
 
-    # Obtener la fecha de creación si existe y convertirla a la zona horaria del portal
+    # Obtener la fecha de creación si existe
     created = api.get_creation_date(self)
     if created:
         created = DateTime(created).toZone(tzname)
 
     # Determinar la fecha base según el flujo de trabajo de muestreo
     if not self.getSamplingWorkflowEnabled():
-        dt = created or DateTime().toZone(tzname)  # Usar fecha de creación o actual convertida
+        dt = created or DateTime().toZone(tzname)
     else:
-        dt = DateTime().toZone(tzname)  # Usar fecha actual convertida
+        dt = DateTime().toZone(tzname)
 
     logger.info("Fecha final para DateSampled: %s", dt)
     return dt
