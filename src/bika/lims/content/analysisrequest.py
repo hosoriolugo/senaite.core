@@ -1952,8 +1952,6 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
         # noinspection PyCallingNonCallable
         return DateTime()
 
-from AccessControl import security
-
 security.declarePublic('getDefaultDateSampled')
 def getDefaultDateSampled(self):
     """Devuelve la fecha/hora por defecto para DateSampled en la TZ del portal"""
@@ -1979,12 +1977,16 @@ def getDefaultDateSampled(self):
 
     # Determinar la fecha base según el flujo de trabajo de muestreo
     if not self.getSamplingWorkflowEnabled():
-        dt = created or DateTime().toZone(tzname)
+        dt = created or DateTime()
     else:
-        dt = DateTime().toZone(tzname)
+        dt = DateTime()
+
+    # Convertir siempre a la TZ del portal
+    dt = DateTime(dt).toZone(tzname)
 
     logger.info("Fecha final para DateSampled: %s", dt)
     return dt
+
 
 
     def getWorksheets(self, full_objects=False):
