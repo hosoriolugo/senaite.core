@@ -1949,12 +1949,22 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
         # noinspection PyCallingNonCallable
         return DateTime()
 
+    def current_date(self):
+        """return current date
+        """
+        # noinspection PyCallingNonCallable
+        return DateTime()
+
     security.declarePublic('getDefaultDateSampled')
     def getDefaultDateSampled(self):
         from zope.component import getUtility
-        from Products.CMFPlone.interfaces import ISiteRoot
+        try:
+            from Products.CMFPlone.interfaces import IPloneSiteRoot
+        except ImportError:
+            # Para versiones antiguas de Plone
+            from Products.CMFPlone.interfaces import ISiteRoot as IPloneSiteRoot
 
-        portal = getUtility(ISiteRoot)
+        portal = getUtility(IPloneSiteRoot)
         tz = portal.getProperty('timezone', 'UTC')
 
         created = api.get_creation_date(self)
