@@ -494,30 +494,33 @@ schema = BikaSchema.copy() + Schema((
         ),
     ),
 
-    DateTimeField(
-        'SamplingDate',
-        mode="rw",
-        min="created",
-        read_permission=View,
-        write_permission=FieldEditSamplingDate,
-        widget=DateTimeWidget(
-            label=_(
-                "label_sample_samplingdate",
-                default="Expected Sampling Date"
-            ),
-            description=_(
-                "description_sample_samplingdate",
-                default="The date when the sample will be taken"
-            ),
-            size=20,
-            show_time=True,
-            render_own_label=True,
-            visible={
-                'add': 'edit',
-                'secondary': 'disabled',
-            },
+DateTimeField(
+    'DateSampled',
+    mode="rw",
+    default_method='current_date',  
+    max="getMaxDateSampled",
+    read_permission=View,
+    write_permission=FieldEditDateSampled,
+    widget=DateTimeWidget(
+        label=_(
+            "label_sample_datesampled",
+            default="Date Sampled"
         ),
+        description=_(
+            "description_sample_datesampled",
+            default="The date when the sample was taken"
+        ),
+        size=20,
+        show_time=True,
+        visible={
+            'add': 'edit',
+            'secondary': 'disabled',
+            'header_table': 'prominent',
+        },
+        render_own_label=True,
     ),
+),
+
 
     UIDReferenceField(
         "SampleType",
@@ -1949,7 +1952,7 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
 
     security.declarePublic('current_date')
     def current_date(self):
-        """Devuelve la fecha/hora actual en la zona horaria del portal"""
+        """Devuelve la fecha/hora actual en la zona horaria configurada del portal"""
         from zope.component import getUtility
         try:
             from Products.CMFPlone.interfaces import IPloneSiteRoot
@@ -1957,43 +1960,13 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
             from Products.CMFPlone.interfaces import ISiteRoot as IPloneSiteRoot
         from DateTime import DateTime
 
+        # Obtener la zona horaria configurada en el portal
         portal = getUtility(IPloneSiteRoot)
         tzname = portal.getProperty('timezone', 'UTC')
+
+        # Devolver la fecha actual en esa zona horaria
         return DateTime().toZone(tzname)
 
-    security.declarePublic('getDefaultDateSampled')
-    def getDefaultDateSampled(self):
-        """Devuelve la fecha/hora por defecto para DateSampled en la TZ del portal"""
-        from zope.component import getUtility
-        try:
-            from Products.CMFPlone.interfaces import IPloneSiteRoot
-        except ImportError:
-            from Products.CMFPlone.interfaces import ISiteRoot as IPloneSiteRoot
-        from DateTime import DateTime
-        from bika.lims import api
-        import logging
-
-        # Obtener la zona horaria del portal
-        portal = getUtility(IPloneSiteRoot)
-        tzname = portal.getProperty('timezone', 'UTC')
-        logger = logging.getLogger("bika.lims")
-        logger.info("Zona horaria configurada en el portal: %s", tzname)
-
-        # Fecha de creación del objeto (si existe)
-        created = api.get_creation_date(self)
-        if created and not isinstance(created, DateTime):
-            created = DateTime(created)
-
-        # Base para la fecha de muestreo
-        if not self.getSamplingWorkflowEnabled():
-            dt = created or DateTime()
-        else:
-            dt = DateTime()
-
-        # Convertir siempre a la zona horaria configurada
-        dt = DateTime(dt).toZone(tzname)
-        logger.info("Fecha final para DateSampled: %s", dt)
-        return dt
 
     def getWorksheets(self, full_objects=False):
         """Returns the worksheets that contains analyses from this Sample"""
