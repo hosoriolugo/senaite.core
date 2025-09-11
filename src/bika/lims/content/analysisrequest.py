@@ -497,7 +497,7 @@ schema = BikaSchema.copy() + Schema((
 DateTimeField(
     'DateSampled',
     mode="rw",
-    default_method='current_date',  
+    default_method='current_date',  # ahora lo encuentra como método de clase
     max="getMaxDateSampled",
     read_permission=View,
     write_permission=FieldEditDateSampled,
@@ -517,6 +517,7 @@ DateTimeField(
         render_own_label=True,
     ),
 ),
+
 
 
     UIDReferenceField(
@@ -1947,22 +1948,28 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
                 contacts.append(contact)
         return contacts
 
-# --- Ajuste para default_method de DateSampled ---
-def current_date(instance):
-    """Devuelve la fecha/hora actual en la zona horaria configurada del portal"""
-    from zope.component import getUtility
-    try:
-        from Products.CMFPlone.interfaces import IPloneSiteRoot
-    except ImportError:
-        from Products.CMFPlone.interfaces import ISiteRoot as IPloneSiteRoot
-    from DateTime import DateTime
+class AnalysisRequest(BaseFolder, ClientAwareMixin):
+    implements(IAnalysisRequest, ICancellable)
+    security = ClassSecurityInfo()
+    displayContentsTab = False
+    schema = schema
 
-    # Obtener la zona horaria configurada en el portal
-    portal = getUtility(IPloneSiteRoot)
-    tzname = portal.getProperty('timezone', 'UTC')
+    @security.public
+    def current_date(self):
+        """Devuelve la fecha/hora actual en la zona horaria configurada del portal"""
+        from zope.component import getUtility
+        try:
+            from Products.CMFPlone.interfaces import IPloneSiteRoot
+        except ImportError:
+            from Products.CMFPlone.interfaces import ISiteRoot as IPloneSiteRoot
+        from DateTime import DateTime
 
-    # Devolver la fecha actual en esa zona horaria
-    return DateTime().toZone(tzname)
+        # Obtener la zona horaria configurada en el portal
+        portal = getUtility(IPloneSiteRoot)
+        tzname = portal.getProperty('timezone', 'UTC')
+
+        # Devolver la fecha actual en esa zona horaria
+        return DateTime().toZone(tzname)
 
 
     def getWorksheets(self, full_objects=False):
