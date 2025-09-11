@@ -1946,48 +1946,50 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
         return contacts
         
 
-    security.declarePublic('current_date')
-    def current_date(self):
-        """return current date"""
-        # noinspection PyCallingNonCallable
-        return DateTime()
+security.declarePublic('current_date')
+def current_date(self):
+    """return current date in portal timezone"""
+    from zope.component import getUtility
+    try:
+        from Products.CMFPlone.interfaces import IPloneSiteRoot
+    except ImportError:
+        from Products.CMFPlone.interfaces import ISiteRoot as IPloneSiteRoot
+    from DateTime import DateTime
 
-    security.declarePublic('getDefaultDateSampled')
-    def getDefaultDateSampled(self):
-        """Devuelve la fecha/hora por defecto para DateSampled en la TZ del portal"""
-        from zope.component import getUtility
-        try:
-            from Products.CMFPlone.interfaces import IPloneSiteRoot
-        except ImportError:
-            from Products.CMFPlone.interfaces import ISiteRoot as IPloneSiteRoot
-        from DateTime import DateTime
-        from bika.lims import api
-        import logging
-
-        # Obtener el portal y la zona horaria
-        portal = getUtility(IPloneSiteRoot)
-        tzname = portal.getProperty('timezone', 'UTC')
-        logger = logging.getLogger("bika.lims")
-        logger.info("Zona horaria configurada en el portal: %s", tzname)
-
-        # Obtener la fecha de creación si existe
-        created = api.get_creation_date(self)
-        if created and not isinstance(created, DateTime):
-            created = DateTime(created)
-
-        # Determinar la fecha base
-        if not self.getSamplingWorkflowEnabled():
-            dt = created or DateTime()
-        else:
-            dt = DateTime()
-
-        # Convertir siempre a la zona horaria del portal
-        dt = DateTime(dt).toZone(tzname)
-
-        logger.info("Fecha final para DateSampled: %s", dt)
-        return dt
+    portal = getUtility(IPloneSiteRoot)
+    tzname = portal.getProperty('timezone', 'UTC')
+    return DateTime().toZone(tzname)
 
 
+security.declarePublic('getDefaultDateSampled')
+def getDefaultDateSampled(self):
+    """Devuelve la fecha/hora por defecto para DateSampled en la TZ del portal"""
+    from zope.component import getUtility
+    try:
+        from Products.CMFPlone.interfaces import IPloneSiteRoot
+    except ImportError:
+        from Products.CMFPlone.interfaces import ISiteRoot as IPloneSiteRoot
+    from DateTime import DateTime
+    from bika.lims import api
+    import logging
+
+    portal = getUtility(IPloneSiteRoot)
+    tzname = portal.getProperty('timezone', 'UTC')
+    logger = logging.getLogger("bika.lims")
+    logger.info("Zona horaria configurada en el portal: %s", tzname)
+
+    created = api.get_creation_date(self)
+    if created and not isinstance(created, DateTime):
+        created = DateTime(created)
+
+    if not self.getSamplingWorkflowEnabled():
+        dt = created or DateTime()
+    else:
+        dt = DateTime()
+
+    dt = DateTime(dt).toZone(tzname)
+    logger.info("Fecha final para DateSampled: %s", dt)
+    return dt
 
 
     def getWorksheets(self, full_objects=False):
