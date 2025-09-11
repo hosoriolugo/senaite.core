@@ -84,7 +84,11 @@ from Products.CMFCore.utils import getToolByName
 from Products.CMFPlone.utils import _createObjectByType
 from Products.CMFPlone.utils import safe_unicode
 from zope.component import getUtility
-from Products.CMFPlone.interfaces import ISiteRoot
+try:
+    from Products.CMFPlone.interfaces import IPloneSiteRoot
+except ImportError:
+    # Para compatibilidad con versiones antiguas de Plone
+    from Products.CMFPlone.interfaces import ISiteRoot as IPloneSiteRoot
 from senaite.core.browser.fields.datetime import DateTimeField
 from senaite.core.browser.fields.records import RecordsField
 from senaite.core.browser.widgets.referencewidget import ReferenceWidget
