@@ -144,22 +144,6 @@ IMG_DATA_SRC_RX = re.compile(r'<img.*?src="(data:image/.*?;base64,)(.*?)"')
 FINAL_STATES = ["published", "retracted", "rejected", "cancelled"]
 
 
-# --- NUEVO: función global para default_method ---
-def current_date():
-    """Devuelve la fecha/hora actual en la zona horaria configurada del portal"""
-    from zope.component import getUtility
-    try:
-        from Products.CMFPlone.interfaces import IPloneSiteRoot
-    except ImportError:
-        from Products.CMFPlone.interfaces import ISiteRoot as IPloneSiteRoot
-    from DateTime import DateTime
-
-    portal = getUtility(IPloneSiteRoot)
-    tzname = portal.getProperty('timezone', 'UTC')
-    return DateTime().toZone(tzname)
-# --- FIN NUEVO ---
-
-
 # SCHEMA DEFINITION
 schema = BikaSchema.copy() + Schema((
 
@@ -448,7 +432,7 @@ schema = BikaSchema.copy() + Schema((
     DateTimeField(
         'DateSampled',
         mode="rw",
-        default_method=current_date,
+        default_method="getDefaultDateSampled",  # 🔹 ahora apunta a un método de clase
         max="getMaxDateSampled",
         read_permission=View,
         write_permission=FieldEditDateSampled,
@@ -471,6 +455,8 @@ schema = BikaSchema.copy() + Schema((
             render_own_label=True,
         ),
     ),
+
+    
 
     StringField(
         'Sampler',
@@ -1939,6 +1925,15 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
                 contacts.append(contact)
         return contacts
 
+    def getDefaultDateSampled(self):
+        """Devuelve la fecha actual ajustada a la zona horaria del portal"""
+        from DateTime import DateTime
+        from bika.lims import api
+
+        portal = api.get_portal()
+        tzname = portal.getProperty("timezone", "UTC")
+        return DateTime().toZone(tzname)
+
 
     def getWorksheets(self, full_objects=False):
         """Returns the worksheets that contains analyses from this Sample"""
@@ -1946,11 +1941,6 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
         if not analyses_uids:
             return []
 
-    def getWorksheets(self, full_objects=False):
-        """Returns the worksheets that contains analyses from this Sample"""
-        analyses_uids = map(api.get_uid, self.getAnalyses())
-        if not analyses_uids:
-            return []
 
         # Get the worksheets that contain any of these analyses
         query = dict(getAnalysesUIDs=analyses_uids)
