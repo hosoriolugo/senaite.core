@@ -1952,36 +1952,35 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
         # noinspection PyCallingNonCallable
         return DateTime()
 
-security.declarePublic('getDefaultDateSampled')
+@security.public
 def getDefaultDateSampled(self):
     """Devuelve la fecha/hora por defecto para DateSampled en la TZ del portal"""
     from zope.component import getUtility
-    from Products.CMFPlone.interfaces import IPloneSiteRoot
+    try:
+        from Products.CMFPlone.interfaces import IPloneSiteRoot
+    except ImportError:
+        from Products.CMFPlone.interfaces import ISiteRoot as IPloneSiteRoot
     from DateTime import DateTime
     from bika.lims import api
     import logging
 
-    # Obtener portal y zona horaria (compatibilidad Plone 4/5)
     portal = getUtility(IPloneSiteRoot)
+    # Primero intenta leer 'localTimeZone' (más usado en Plone), si no existe, cae a 'timezone'
     tzname = portal.getProperty('localTimeZone', None) or portal.getProperty('timezone', 'UTC')
 
     logger = logging.getLogger("bika.lims")
     logger.info("Zona horaria configurada: %s", tzname)
 
-    # Obtener fecha de creación y normalizar
     created = api.get_creation_date(self)
     if created:
         created = DateTime(created).toZone(tzname)
 
-    # Determinar base
     if not self.getSamplingWorkflowEnabled():
         dt = created or DateTime()
     else:
         dt = DateTime()
 
-    # Convertir siempre a la TZ del portal
     dt = DateTime(dt).toZone(tzname)
-
     logger.info("Fecha final convertida a %s: %s", tzname, dt)
     return dt
 
