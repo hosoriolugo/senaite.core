@@ -1964,26 +1964,25 @@ def getDefaultDateSampled(self):
     from bika.lims import api
     import logging
 
+    # Obtener el portal y la zona horaria
     portal = getUtility(IPloneSiteRoot)
-    # Primero intenta leer 'localTimeZone' (más usado en Plone), si no existe, cae a 'timezone'
-    tzname = portal.getProperty('localTimeZone', None) or portal.getProperty('timezone', 'UTC')
-
+    tzname = portal.getProperty('timezone', 'UTC')  # Asegúrate de que esté configurado como 'America/Mexico_City'
     logger = logging.getLogger("bika.lims")
-    logger.info("Zona horaria configurada: %s", tzname)
+    logger.info("Zona horaria configurada en el portal: %s", tzname)
 
+    # Obtener la fecha de creación si existe y convertirla a la zona horaria del portal
     created = api.get_creation_date(self)
     if created:
         created = DateTime(created).toZone(tzname)
 
+    # Determinar la fecha base según el flujo de trabajo de muestreo
     if not self.getSamplingWorkflowEnabled():
-        dt = created or DateTime()
+        dt = created or DateTime().toZone(tzname)  # Usar fecha de creación o actual convertida
     else:
-        dt = DateTime()
+        dt = DateTime().toZone(tzname)  # Usar fecha actual convertida
 
-    dt = DateTime(dt).toZone(tzname)
-    logger.info("Fecha final convertida a %s: %s", tzname, dt)
+    logger.info("Fecha final para DateSampled: %s", dt)
     return dt
-
 
 
     def getWorksheets(self, full_objects=False):
