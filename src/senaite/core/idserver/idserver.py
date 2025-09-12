@@ -58,6 +58,26 @@
 # Copyright 2018-2025 by it's authors.
 # Some rights reserved, see README and LICENSE.
 
+# -*- coding: utf-8 -*-
+#
+# This file is part of SENAITE.CORE.
+#
+# SENAITE.CORE is free software: you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation, version 2.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 51
+# Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# Copyright 2018-2025 by it's authors.
+# Some rights reserved, see README and LICENSE.
+
 import itertools
 import re
 from datetime import datetime
@@ -193,7 +213,7 @@ def get_config(context, **kw):
         'prefix': '%s' % portal_type.lower(),
     }
 
-    # 🔹 Ajuste solo para AnalysisRequest
+    # 🔹 Ajuste solo para AnalysisRequest → formato PREFIXyymmdd0000
     if portal_type.lower() == "analysisrequest":
         default_config = {
             'form': '{sampleType}{yymmdd}{seq:04d}',
@@ -207,6 +227,20 @@ def get_config(context, **kw):
 def get_variables(context, **kw):
     portal_type = get_type_id(context, **kw)
     parent = kw.get("container") or api.get_parent(context)
+
+    # ⚠️ Manejo especial: objetos temporales (RequestContainer)
+    if context.__class__.__name__ == "RequestContainer":
+        return {
+            "context": context,
+            "id": None,
+            "portal_type": portal_type,
+            "year": get_current_year(),
+            "yymmdd": get_yymmdd(),
+            "parent": parent,
+            "seq": 0,
+            "alpha": Alphanumber(0),
+        }
+
     variables = {
         "context": context,
         "id": api.get_id(context),
@@ -321,7 +355,7 @@ def get_yymmdd():
 
 
 def make_storage_key(portal_type, prefix=None):
-    """🔹 Ajuste: reinicio diario solo para AnalysisRequest"""
+    """🔹 Reinicio diario solo para AnalysisRequest"""
     if portal_type.lower() == "analysisrequest":
         today = datetime.now().strftime("%y%m%d")
         key = "{}-{}-{}".format(portal_type.lower(), prefix or "", today)
@@ -419,4 +453,5 @@ def renameAfterCreation(obj):
     parent = api.get_parent(obj)
     parent.manage_renameObject(obj.id, new_id)
     return new_id
+
 
