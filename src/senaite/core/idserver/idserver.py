@@ -105,9 +105,6 @@ from zope.component import getAdapters
 from zope.component import getUtility
 from zope.component import queryAdapter
 
-# 🔹 Import para detectar objetos temporales
-from ZPublisher.BaseRequest import RequestContainer
-
 AR_TYPES = [
     "AnalysisRequest",
     "AnalysisRequestRetest",
@@ -231,8 +228,8 @@ def get_variables(context, **kw):
     portal_type = get_type_id(context, **kw)
     parent = kw.get("container") or api.get_parent(context)
 
-    # 🚨 Salida temprana si es un objeto temporal RequestContainer
-    if isinstance(context, RequestContainer):
+    # ⚠️ Manejo especial: objetos temporales (RequestContainer)
+    if context.__class__.__name__ == "RequestContainer":
         return {
             "context": context,
             "id": None,
@@ -242,12 +239,7 @@ def get_variables(context, **kw):
             "parent": parent,
             "seq": 0,
             "alpha": Alphanumber(0),
-            # Valores seguros
-            "clientId": "",
-            "dateSampled": DateTime(),
-            "samplingDate": DateTime(),
-            "sampleType": "TMP",
-            "test_count": 0,
+            "sampleType": "TMP",  # marcador temporal
         }
 
     variables = {
@@ -263,10 +255,12 @@ def get_variables(context, **kw):
 
     if IAnalysisRequest.providedBy(context):
         now = DateTime()
-        sampling_date = context.getSamplingDate()
+        # 🔹 Solo llamamos métodos si existen
+        sampling_date = getattr(context, "getSamplingDate", lambda: None)()
         sampling_date = sampling_date and DT2dt(sampling_date) or DT2dt(now)
-        date_sampled = context.getDateSampled()
+        date_sampled = getattr(context, "getDateSampled", lambda: None)()
         date_sampled = date_sampled and DT2dt(date_sampled) or DT2dt(now)
+
         test_count = 1
         variables.update({
             "clientId": context.getClientID(),
@@ -275,6 +269,7 @@ def get_variables(context, **kw):
             "sampleType": context.getSampleType().getPrefix(),
             "test_count": test_count
         })
+
         if IAnalysisRequestPartition.providedBy(context):
             parent_ar = context.getParentAnalysisRequest()
             parent_ar_id = api.get_id(parent_ar)
@@ -462,5 +457,3 @@ def renameAfterCreation(obj):
     parent = api.get_parent(obj)
     parent.manage_renameObject(obj.id, new_id)
     return new_id
-
-
