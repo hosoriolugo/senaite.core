@@ -5,24 +5,35 @@ document.addEventListener("DOMContentLoaded", () => {
     constructor() {
       this.update_date = this.update_date.bind(this);
       this.on_change = this.on_change.bind(this);
+      this.waitForFields();
+    }
 
-      // 🔹 Espera un poco a que se rendericen los inputs del formulario
-      setTimeout(() => {
+    waitForFields() {
+      let datefields = document.querySelectorAll("input[type='date']");
+      let timefields = document.querySelectorAll("input[type='time']");
+      if (datefields.length && timefields.length) {
+        this.datefields = datefields;
+        this.timefields = timefields;
         this.bind_fields();
+        this.disable_autocomplete();
         this.autofill_now();
-      }, 300);  // 300ms suele ser suficiente, ajusta si hace falta
+      } else {
+        requestAnimationFrame(() => this.waitForFields());
+      }
     }
 
     bind_fields() {
-      this.datefields = document.querySelectorAll("input[type='date']");
-      this.timefields = document.querySelectorAll("input[type='time']");
-
       this.datefields.forEach((el) => {
         el.addEventListener("change", this.on_change);
       });
       this.timefields.forEach((el) => {
         el.addEventListener("change", this.on_change);
       });
+    }
+
+    disable_autocomplete() {
+      this.datefields.forEach((df) => df.setAttribute("autocomplete", "off"));
+      this.timefields.forEach((tf) => tf.setAttribute("autocomplete", "off"));
     }
 
     set_field(field, value) {
@@ -61,7 +72,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      let now = new Date(); // hora local del navegador
+      let now = new Date();
       let yyyy = now.getFullYear();
       let mm = String(now.getMonth() + 1).padStart(2, "0");
       let dd = String(now.getDate()).padStart(2, "0");
@@ -74,7 +85,6 @@ document.addEventListener("DOMContentLoaded", () => {
       this.datefields.forEach((df) => (df.value = dateStr));
       this.timefields.forEach((tf) => (tf.value = timeStr));
 
-      // 🔹 actualiza el campo oculto también
       this.timefields.forEach((tf) => {
         let target = tf.getAttribute("target");
         if (target) {
