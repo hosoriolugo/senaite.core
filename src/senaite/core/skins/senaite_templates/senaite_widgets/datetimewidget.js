@@ -6,8 +6,11 @@ document.addEventListener("DOMContentLoaded", () => {
       this.update_date = this.update_date.bind(this);
       this.on_change = this.on_change.bind(this);
       this.waitForFields();
+      // referencia global para reuso en pageshow
+      window.dateTimeWidgetInstance = this;
     }
 
+    // 🔹 Espera dinámicamente a que los campos estén renderizados
     waitForFields() {
       let datefields = document.querySelectorAll("input[type='date']");
       let timefields = document.querySelectorAll("input[type='time']");
@@ -16,12 +19,14 @@ document.addEventListener("DOMContentLoaded", () => {
         this.timefields = timefields;
         this.bind_fields();
         this.disable_autocomplete();
+        this.reset_forms();
         this.autofill_now();
       } else {
         requestAnimationFrame(() => this.waitForFields());
       }
     }
 
+    // 🔹 Enlaza eventos de cambio
     bind_fields() {
       this.datefields.forEach((el) => {
         el.addEventListener("change", this.on_change);
@@ -31,9 +36,15 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
+    // 🔹 Desactiva autocompletar (Chrome ignora "off", usamos "new-password")
     disable_autocomplete() {
-      this.datefields.forEach((df) => df.setAttribute("autocomplete", "off"));
-      this.timefields.forEach((tf) => tf.setAttribute("autocomplete", "off"));
+      this.datefields.forEach((df) => df.setAttribute("autocomplete", "new-password"));
+      this.timefields.forEach((tf) => tf.setAttribute("autocomplete", "new-password"));
+    }
+
+    // 🔹 Limpia valores restaurados por el navegador antes de rellenar
+    reset_forms() {
+      document.querySelectorAll("form").forEach((form) => form.reset());
     }
 
     set_field(field, value) {
@@ -66,6 +77,7 @@ document.addEventListener("DOMContentLoaded", () => {
       this.update_date(date, time, input);
     }
 
+    // 🔹 Precarga fecha y hora actual
     autofill_now() {
       if (!this.datefields.length || !this.timefields.length) {
         console.warn("⚠️ DateTimeWidget: no encontró inputs date/time");
@@ -85,6 +97,7 @@ document.addEventListener("DOMContentLoaded", () => {
       this.datefields.forEach((df) => (df.value = dateStr));
       this.timefields.forEach((tf) => (tf.value = timeStr));
 
+      // actualiza campo oculto también
       this.timefields.forEach((tf) => {
         let target = tf.getAttribute("target");
         if (target) {
@@ -95,5 +108,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // Instancia inicial
   new DateTimeWidget();
+
+  // 🔹 Reaplicar valores si el navegador restaura formulario al volver atrás
+  window.addEventListener("pageshow", () => {
+    if (window.dateTimeWidgetInstance) {
+      window.dateTimeWidgetInstance.autofill_now();
+    }
+  });
+
 });
