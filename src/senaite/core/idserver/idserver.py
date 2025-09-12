@@ -105,6 +105,9 @@ from zope.component import getAdapters
 from zope.component import getUtility
 from zope.component import queryAdapter
 
+# 🔹 Import para detectar objetos temporales
+from ZPublisher.BaseRequest import RequestContainer
+
 AR_TYPES = [
     "AnalysisRequest",
     "AnalysisRequestRetest",
@@ -228,8 +231,8 @@ def get_variables(context, **kw):
     portal_type = get_type_id(context, **kw)
     parent = kw.get("container") or api.get_parent(context)
 
-    # ⚠️ Manejo especial: objetos temporales (RequestContainer)
-    if context.__class__.__name__ == "RequestContainer":
+    # 🚨 Salida temprana si es un objeto temporal RequestContainer
+    if isinstance(context, RequestContainer):
         return {
             "context": context,
             "id": None,
@@ -239,6 +242,12 @@ def get_variables(context, **kw):
             "parent": parent,
             "seq": 0,
             "alpha": Alphanumber(0),
+            # Valores seguros
+            "clientId": "",
+            "dateSampled": DateTime(),
+            "samplingDate": DateTime(),
+            "sampleType": "TMP",
+            "test_count": 0,
         }
 
     variables = {
