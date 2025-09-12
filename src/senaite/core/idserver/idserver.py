@@ -38,6 +38,26 @@
 # Copyright 2018-2025 by it's authors.
 # Some rights reserved, see README and LICENSE.
 
+# -*- coding: utf-8 -*-
+#
+# This file is part of SENAITE.CORE.
+#
+# SENAITE.CORE is free software: you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation, version 2.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 51
+# Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# Copyright 2018-2025 by it's authors.
+# Some rights reserved, see README and LICENSE.
+
 import itertools
 import re
 from datetime import datetime
@@ -159,6 +179,7 @@ def is_ar(context):
 
 
 def get_config(context, **kw):
+    """Fetch the config dict from the Bika Setup for the given portal_type"""
     config_map = api.get_bika_setup().getIDFormatting()
     portal_type = get_type_id(context, **kw)
 
@@ -166,19 +187,26 @@ def get_config(context, **kw):
         if config['portal_type'].lower() == portal_type.lower():
             return config
 
-    # 🔹 Ajuste: Formato sin guiones -> {sampleType}{yymmdd}{seq:04d}
     default_config = {
-        'form': '{sampleType}{yymmdd}{seq:04d}',
+        'form': '%s-{seq}' % portal_type.lower(),
         'sequence_type': 'generated',
         'prefix': '%s' % portal_type.lower(),
     }
+
+    # 🔹 Ajuste solo para AnalysisRequest
+    if portal_type.lower() == "analysisrequest":
+        default_config = {
+            'form': '{sampleType}{yymmdd}{seq:04d}',
+            'sequence_type': 'generated',
+            'prefix': 'AR',
+        }
+
     return default_config
 
 
 def get_variables(context, **kw):
     portal_type = get_type_id(context, **kw)
     parent = kw.get("container") or api.get_parent(context)
-
     variables = {
         "context": context,
         "id": api.get_id(context),
@@ -197,7 +225,6 @@ def get_variables(context, **kw):
         date_sampled = context.getDateSampled()
         date_sampled = date_sampled and DT2dt(date_sampled) or DT2dt(now)
         test_count = 1
-
         variables.update({
             "clientId": context.getClientID(),
             "dateSampled": date_sampled,
@@ -205,6 +232,43 @@ def get_variables(context, **kw):
             "sampleType": context.getSampleType().getPrefix(),
             "test_count": test_count
         })
+        if IAnalysisRequestPartition.providedBy(context):
+            parent_ar = context.getParentAnalysisRequest()
+            parent_ar_id = api.get_id(parent_ar)
+            parent_base_id = strip_suffix(parent_ar_id)
+            partition_count = get_partition_count(context)
+            variables.update({
+                "parent_analysisrequest": parent_ar,
+                "parent_ar_id": parent_ar_id,
+                "parent_base_id": parent_base_id,
+                "partition_count": partition_count,
+            })
+        elif IAnalysisRequestRetest.providedBy(context):
+            parent_ar = context.getInvalidated()
+            parent_ar_id = api.get_id(parent_ar)
+            parent_base_id = strip_suffix(parent_ar_id)
+            if context.isPartition():
+                parent_base_id = parent_ar_id
+            retest_count = get_retest_count(context)
+            test_count = test_count + retest_count
+            variables.update({
+                "parent_analysisrequest": parent_ar,
+                "parent_ar_id": parent_ar_id,
+                "parent_base_id": parent_base_id,
+                "retest_count": retest_count,
+                "test_count": test_count,
+            })
+        elif IAnalysisRequestSecondary.providedBy(context):
+            primary_ar = context.getPrimaryAnalysisRequest()
+            primary_ar_id = api.get_id(primary_ar)
+            parent_base_id = strip_suffix(primary_ar_id)
+            secondary_count = get_secondary_count(context)
+            variables.update({
+                "parent_analysisrequest": primary_ar,
+                "parent_ar_id": primary_ar_id,
+                "parent_base_id": parent_base_id,
+                "secondary_count": secondary_count,
+            })
 
     elif IARReport.providedBy(context):
         variables.update({
@@ -257,13 +321,15 @@ def get_yymmdd():
 
 
 def make_storage_key(portal_type, prefix=None):
-    """🔹 Ajuste: Reinicio diario por prefix"""
-    today = datetime.now().strftime("%y%m%d")
+    """🔹 Ajuste: reinicio diario solo para AnalysisRequest"""
+    if portal_type.lower() == "analysisrequest":
+        today = datetime.now().strftime("%y%m%d")
+        key = "{}-{}-{}".format(portal_type.lower(), prefix or "", today)
+        return key
+
     key = portal_type.lower()
     if prefix:
-        key = "{}-{}-{}".format(key, prefix, today)
-    else:
-        key = "{}-{}".format(key, today)
+        key = "{}-{}".format(key, prefix)
     return key
 
 
@@ -310,12 +376,10 @@ def get_generated_number(context, config, variables, **kw):
     prefix = prefix_template.format(**variables)
     prefix = api.normalize_filename(prefix)
     key = make_storage_key(portal_type, prefix)
-
     if not kw.get("dry_run", False):
         number = number_generator.generate_number(key=key)
     else:
         number = number_generator.get(key, 1)
-
     return get_alpha_or_number(number, id_template)
 
 
@@ -324,18 +388,14 @@ def generateUniqueId(context, **kw):
     variables = get_variables(context, **kw)
     number = 0
     sequence_type = config.get("sequence_type", "generated")
-
     if sequence_type in ["counter"]:
         number = get_counted_number(context, config, variables, **kw)
     if sequence_type in ["generated"]:
         number = get_generated_number(context, config, variables, **kw)
-
     if isinstance(number, Alphanumber):
         variables["alpha"] = number
     variables["seq"] = to_int(number)
-
     id_template = config.get("form", "")
-
     try:
         new_id = id_template.format(**variables)
     except KeyError as e:
@@ -359,3 +419,4 @@ def renameAfterCreation(obj):
     parent = api.get_parent(obj)
     parent.manage_renameObject(obj.id, new_id)
     return new_id
+
