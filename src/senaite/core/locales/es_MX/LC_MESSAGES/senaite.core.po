@@ -1069,7 +1069,7 @@ msgstr "Choose the default template for 'large' stickers.<br/><strong>Note:</str
 
 #: bika/lims/content/bikasetup.py:852
 msgid "Choose the default template for 'small' stickers.<br/><strong>Note:</strong> Sample-specific 'small' stickers are configured based on their sample type."
-msgstr "Seleccione la plantilla predeterminada para las pegatinas "pequeñas".<br/><strong>Nota:</strong> Las pegatinas "pequeñas" específicas de cada muestra se configuran según su tipo."
+msgstr "Seleccione la plantilla predeterminada para las etiqueta \"pequeñas\".<br/><strong>Nota:</strong> Las etiquetas \"pequeñas\" específicas de cada muestra se configuran según su tipo."
 
 #: bika/lims/content/bikasetup.py:454
 msgid "Choose type of multiple verification for the same user.This setting can enable/disable verifying/consecutively verifyingmore than once for the same user."
