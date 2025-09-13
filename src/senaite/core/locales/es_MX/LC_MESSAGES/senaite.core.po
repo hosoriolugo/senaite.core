@@ -47,19 +47,19 @@ msgstr "${request_id}: ${keywords} importado/s correctamente"
 
 #: senaite/core/exportimport/instruments/importer.py:798
 msgid "${request_id}: calculated result for '${analysis_keyword}': '${analysis_result}'"
-msgstr "${request_id}: calculated result for '${analysis_keyword}': '${analysis_result}'"
+msgstr "${request_id}: resultado calculado para '${analysis_keyword}': '${analysis_result}'"
 
 #: senaite/core/exportimport/instruments/importer.py:745
 msgid "${sid} Updated field '${field}' with '${value}'"
-msgstr "${sid} Updated field '${field}' with '${value}'"
+msgstr "${sid} Campo actualizado '${field}' with '${value}'"
 
 #: senaite/core/exportimport/instruments/importer.py:618
 msgid "${sid} result for '${analysis_keyword}:${interim_keyword}': '${value}'"
-msgstr "${sid} result for '${analysis_keyword}:${interim_keyword}': '${value}'"
+msgstr "${sid} resultado para '${analysis_keyword}:${interim_keyword}': '${value}'"
 
 #: senaite/core/exportimport/instruments/importer.py:691
 msgid "${sid} result for '${keyword}': '${result}'"
-msgstr "${sid} result for '${keyword}': '${result}'"
+msgstr "${sid} resultado para '${keyword}': '${result}'"
 
 #: bika/lims/utils/analysisrequest.py:623
 msgid "%s has been rejected"
@@ -80,7 +80,7 @@ msgstr "&larr; Volver a ${back_link}"
 
 #: senaite/core/browser/samples/rejection/templates/reject_samples.pt:30
 msgid "&larr; Go back"
-msgstr "&larr; Go back"
+msgstr "&larr; Volver"
 
 #: senaite/core/browser/samples/templates/multi_results.pt:46
 msgid "&larr; Go back to see all samples"
@@ -112,7 +112,7 @@ msgstr "El valor de 'Warn Min' tiene que ser inferior al valor de 'Min'"
 
 #: bika/lims/validators.py:887
 msgid "'Warn Min' value must be numeric or empty"
-msgstr "El valor de 'Warn Min' tiene que ser numérico o vacío"
+msgstr "El valor de 'Advertencia Min' tiene que ser numérico o vacío"
 
 #: senaite/core/browser/viewlets/templates/attachments.pt:252
 msgid "(Blank)"
@@ -200,7 +200,7 @@ msgstr "Tipo de cuenta"
 
 #: senaite/core/content/analysisprofile.py:64
 msgid "Accounting"
-msgstr "Accounting"
+msgstr "Contabilidad"
 
 #: bika/lims/browser/accreditation.py:41
 #: bika/lims/content/laboratory.py:141
@@ -422,11 +422,11 @@ msgstr "Permitir el envío de resultados para analíticas no asignadas o para an
 
 #: senaite/core/exportimport/instruments/importer.py:371
 msgid "Allowed analysis states: ${allowed_states}"
-msgstr "Allowed analysis states: ${allowed_states}"
+msgstr "Estados de análisis permitidos: ${allowed_states}"
 
 #: senaite/core/exportimport/instruments/importer.py:366
 msgid "Allowed sample states: ${allowed_states}"
-msgstr "Allowed sample states: ${allowed_states}"
+msgstr "Estados de muestra permitidos: ${allowed_states}"
 
 #: bika/lims/browser/worksheet/templates/print/sample_by_column.pt:60
 #: bika/lims/browser/worksheet/templates/print/sample_by_row.pt:60
@@ -450,7 +450,7 @@ msgstr "Análisis"
 
 #: senaite/core/exportimport/instruments/importer.py:666
 msgid "Analysis '${keyword}' of sample '${sid}' has the result '${result}' set, which is kept due to the selected override option"
-msgstr "Analysis '${keyword}' of sample '${sid}' has the result '${result}' set, which is kept due to the selected override option"
+msgstr "Analysis '${keyword}' de muestra '${sid}' tiene el resultado '${result}' conjunto, que se mantiene debido a la opción de anulación seleccionada"
 
 #: bika/lims/content/abstractbaseanalysis.py:343
 msgid "Analysis Keyword"
@@ -600,7 +600,7 @@ msgstr "Adjuntar a la muestra"
 
 #: senaite/core/exportimport/instruments/importer.py:830
 msgid "Attached file '%{filename}' to worksheet ${worksheet}"
-msgstr "Attached file '%{filename}' to worksheet ${worksheet}"
+msgstr "Archivo adjunto '%{filename}' a la hoja de cálculo ${worksheet}"
 
 #: senaite/core/extender/label.py:58
 msgid "Attached labels"
@@ -608,7 +608,7 @@ msgstr "Etiquetas asignadas a este contenido"
 
 #: senaite/core/exportimport/instruments/importer.py:872
 msgid "Attaching '${attachment}' to Analysis '${analysis}'"
-msgstr "Attaching '${attachment}' to Analysis '${analysis}'"
+msgstr "Adjuntando '${attachment}' al análisis '${analysis}'"
 
 #: bika/lims/content/analysisrequest.py:1008
 #: bika/lims/content/attachment.py:52
@@ -618,7 +618,7 @@ msgstr "Fichero adjunto"
 
 #: senaite/core/exportimport/instruments/importer.py:880
 msgid "Attachment '${attachment}' was already linked to analysis ${analysis}"
-msgstr "Attachment '${attachment}' was already linked to analysis ${analysis}"
+msgstr "El archivo adjunto '${attachment}' ya estaba vinculado al análisis ${analysis}"
 
 #: bika/lims/content/attachment.py:91
 msgid "Attachment Keys"
@@ -703,7 +703,7 @@ msgstr "Auto-rellenado"
 
 #: bika/lims/content/bikasetup.py:815
 msgid "Automatic Sticker Printing"
-msgstr "Automatic Sticker Printing"
+msgstr "Impresión automática de etiquetas"
 
 #: bika/lims/content/bikasetup.py:160
 msgid "Automatic log-off"
@@ -1069,7 +1069,7 @@ msgstr "Choose the default template for 'large' stickers.<br/><strong>Note:</str
 
 #: bika/lims/content/bikasetup.py:852
 msgid "Choose the default template for 'small' stickers.<br/><strong>Note:</strong> Sample-specific 'small' stickers are configured based on their sample type."
-msgstr "Choose the default template for 'small' stickers.<br/><strong>Note:</strong> Sample-specific 'small' stickers are configured based on their sample type."
+msgstr "Seleccione la plantilla predeterminada para las pegatinas "pequeñas".<br/><strong>Nota:</strong> Las pegatinas "pequeñas" específicas de cada muestra se configuran según su tipo."
 
 #: bika/lims/content/bikasetup.py:454
 msgid "Choose type of multiple verification for the same user.This setting can enable/disable verifying/consecutively verifyingmore than once for the same user."
@@ -1077,7 +1077,7 @@ msgstr "Seleccione el tipo de verificación múltiple a aplicar para un mismo us
 
 #: bika/lims/content/bikasetup.py:816
 msgid "Choose when stickers should be automatically printed:<br/><ul><li><strong>Register:</strong> Stickers are printed  automatically when new samples are created.</li><li><strong>Receive:</strong> Stickers are printed  automatically when samples are received.</li><li><strong>None:</strong> Disables automatic sticker printing.</li></ul>"
-msgstr "Choose when stickers should be automatically printed:<br/><ul><li><strong>Register:</strong> Stickers are printed  automatically when new samples are created.</li><li><strong>Receive:</strong> Stickers are printed  automatically when samples are received.</li><li><strong>None:</strong> Disables automatic sticker printing.</li></ul>"
+msgstr "Seleccione cuándo se deben imprimir automáticamente las etiquetas:<br/><ul><li><strong>Registrar:</strong> Las etiquetas se imprimen automáticamente cuando se crean nuevas muestras.</li><li><strong>Recibir:</strong> Las etiquetas se imprimen automáticamente cuando se reciben muestras.</li><li><strong>Ninguno:</strong> Desactiva la impresión automática de etiqueta.</li></ul>"
 
 #: senaite/core/z3cform/widgets/address.py:225
 msgid "City"
@@ -7754,7 +7754,7 @@ msgstr "INFOLABSA es desarrollado por:"
 #. Default: "Plone & Python"
 #: senaite/core/browser/viewlets/templates/colophon.pt:12
 msgid "label_powered_by_plone"
-msgstr "Plone y Python"
+msgstr "DICPACS"
 
 #. Default: "Blank"
 #: bika/lims/content/referencedefinition.py:68
@@ -9347,7 +9347,7 @@ msgstr "title_batchlabel_title"
 #. Default: "This site was built using the Plone Open Source CMS/WCM."
 #: senaite/core/browser/viewlets/templates/colophon.pt:12
 msgid "title_built_with_plone"
-msgstr "Este sitio fue construido usando el CMS/WCM de código abierto Plone."
+msgstr "Este sitio fue construido por DICIPACS."
 
 #. Default: "Description"
 #: senaite/core/content/containertype.py:44
