@@ -495,7 +495,7 @@ class SamplesView(ListingView):
         item = super(SamplesView, self).folderitem(obj, item, index)
         if not item:
             return None
-
+      
         item["Creator"] = self.user_fullname(obj.Creator)
         # If we redirect from the folderitems view we should check if the
         # user has permissions to medify the element or not.
@@ -651,6 +651,15 @@ class SamplesView(ListingView):
             item["parent"] = obj.getRawParentAnalysisRequest
             item["children"] = obj.getDescendantsUIDs or []
 
+
+        # --- NUEVO BLOQUE ---
+        # Asegura que siempre se muestre el fullname calculado desde Patient
+        patient = obj.getPatient()
+        if patient:
+            fullname = patient.getFullname()
+            if fullname:
+                item["Patient"] = fullname
+      
         return item
 
     @view.memoize
