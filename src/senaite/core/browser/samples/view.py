@@ -651,14 +651,18 @@ class SamplesView(ListingView):
             item["parent"] = obj.getRawParentAnalysisRequest
             item["children"] = obj.getDescendantsUIDs or []
 
-        # --- NUEVO BLOQUE ---
-        # Asegura que siempre se muestre el fullname calculado desde Patient
+        # --- PACIENTE ---
         if hasattr(obj, "getPatient"):
             patient = obj.getPatient()
-            if patient and hasattr(patient, "getFullname"):
-                fullname = patient.getFullname()
+            if patient:
+                fullname = getattr(patient, "getFullname", lambda: None)()
                 if fullname:
                     item["Patient"] = fullname
+
+                # --- MRN ---
+                mrn = getattr(patient, "getMedicalRecordNumberValue", lambda: None)()
+                if mrn:
+                    item["MRN"] = mrn
       
         return item
 
