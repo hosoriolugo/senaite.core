@@ -1,25 +1,27 @@
-<div id="senaite-colophon" i18n:domain="senaite.core">
+<div id="senaite-colophon">
   <div class="container-fluid">
     <div class="row">
-      <div class="col-md-12">
+      <div class="col-md-12 text-muted">
 
-        <div class="text-center text-muted">
-          <p>
-            <span i18n:translate="label_powered_by_infolabsa">
-              © 2017-2025 INFOLABSA LIMS
-              <br/>
-              INFOLABSA es desarrollado por: Python y DICIPACS
-            </span>
-            <a href="https://hinesimedica.com"
-               title="Este software fue desarrollado por DICIPACS."
-               i18n:translate="label_vendor_name">
-              DICIPACS
-            </a>
-          </p>
-          <p i18n:translate="label_all_rights">
-            Todos los derechos reservados - V2.6.1
-          </p>
-        </div>
+        <!-- Izquierda -->
+        <p class="text-left">
+          <span tal:define="now python: DateTime().year()"
+                tal:content="string:© 2017-${now} INFOLABSA LIMS">
+            © 2017-2025 INFOLABSA LIMS
+          </span>
+        </p>
+
+        <!-- Centro: “desarrollado por …” -->
+        <p class="text-center">
+          INFOLABSA es desarrollado por: Python y DICIPACS
+          <a href="https://hinesimedica.com"
+             title="Este software fue desarrollado por DICIPACS.">
+            DICIPACS
+          </a>
+        </p>
+
+        <!-- Centro: derechos -->
+        <p class="text-center">Todos los derechos reservados - V2.6.1</p>
 
       </div>
     </div>
