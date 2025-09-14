@@ -29,7 +29,8 @@ from bika.lims import logger
 from Products.Archetypes.Registry import registerWidget
 from senaite.core.browser.widgets.queryselect import QuerySelectWidget
 
-DISPLAY_TEMPLATE = "<a href='${url}' _target='blank'>${Title}</a>"
+# --- AJUSTE: usar siempre Fullname en la visualización ---
+DISPLAY_TEMPLATE = "<a href='${url}' target='_blank'>${Fullname}</a>"
 IGNORE_COLUMNS = ["UID"]
 
 
@@ -51,14 +52,14 @@ class ReferenceWidget(QuerySelectWidget):
         "base_query": {},
         # columns to display in the search dropdown
         "colModel": [
-            {"columnName": "Title", "width": "30", "label": _(
-                "Title"), "align": "left"},
-            {"columnName": "Description", "width": "70", "label": _(
+            {"columnName": "Fullname", "width": "50", "label": _(
+                "Full name"), "align": "left"},
+            {"columnName": "Description", "width": "50", "label": _(
                 "Description"), "align": "left"},
-            # UID is required in colModel
             {"columnName": "UID", "hidden": True},
         ],
-        "ui_item": "Title",
+        # --- AJUSTE: usar Fullname ---
+        "ui_item": "Fullname",
         "search_fields": [],
         "discard_empty": [],
         "popup_width": "550px",
@@ -68,7 +69,8 @@ class ReferenceWidget(QuerySelectWidget):
         "delay": "500",
         "resetButton": False,
         "sord": "asc",
-        "sidx": "Title",
+        # --- AJUSTE: ordenar por fullname ---
+        "sidx": "Fullname",
         "force_all": False,
         "portal_types": {},
     })
@@ -88,7 +90,6 @@ class ReferenceWidget(QuerySelectWidget):
         else:
             uids = []
 
-        # handle custom setters that expect only a UID, e.g. setSpecification
         multi_valued = getattr(field, "multiValued", self.multi_valued)
         if not multi_valued:
             uids = uids[0] if len(uids) > 0 else ""
@@ -96,57 +97,37 @@ class ReferenceWidget(QuerySelectWidget):
         return uids, {}
 
     def get_multi_valued(self, context, field, default=None):
-        """Lookup if the field is single or multi valued
-        """
         multi_valued = getattr(field, "multiValued", None)
         if multi_valued is None:
             return default
         return multi_valued
 
     def get_display_template(self, context, field, default=None):
-        """Lookup the display template
-        """
-        # check if the new `display_template` property is set
         prop = getattr(self, "display_template", None)
         if prop is not None:
             return prop
 
-        # BBB: ui_item
-        ui_item = getattr(self, "ui_item", None),
-        if ui_item is not None:
-            return "<a href='${url}' _target='blank'>${%s}</a>" % ui_item
-
-        return default
+        # --- AJUSTE: usamos Fullname en lugar de Title ---
+        return "<a href='${url}' target='_blank'>${Fullname}</a>"
 
     def get_catalog(self, context, field, default=None):
-        """Lookup the catalog to query
-        """
-        # check if the new `catalog` property is set
         prop = getattr(self, "catalog", None)
         if prop is not None:
             return prop
 
-        # BBB: catalog_name
         catalog_name = getattr(self, "catalog_name", None)
-
         if catalog_name is None:
-            # try to lookup the catalog for the given object
             catalogs = api.get_catalogs_for(context)
-            # function always returns at least one catalog object
             catalog_name = catalogs[0].getId()
 
         return catalog_name
 
     def get_query(self, context, field, default=None):
-        """Lookup the catalog query
-        """
         base_query = self.get_base_query(context, field)
-
         query = getattr(self, "query", None)
         if isinstance(query, dict):
             base_query.update(query)
 
-        # extend portal_type filter
         allowed_types = getattr(field, "allowed_types", None)
         allowed_types_method = getattr(field, "allowed_types_method", None)
         if allowed_types_method:
@@ -161,8 +142,6 @@ class ReferenceWidget(QuerySelectWidget):
         return base_query
 
     def get_base_query(self, context, field):
-        """BBB: Get the base query from the widget
-        """
         base_query = getattr(self, "base_query", {})
         if callable(base_query):
             try:
@@ -171,26 +150,20 @@ class ReferenceWidget(QuerySelectWidget):
                 base_query = base_query()
         if api.is_string(base_query):
             base_query = json.loads(base_query)
-
         return base_query
 
     def get_columns(self, context, field, default=None):
-        """Lookup the columns to show in the results popup
-        """
         prop = getattr(self, "columns", [])
         if len(prop) > 0:
             return prop
 
-        # BBB: colModel
         col_model = getattr(self, "colModel", [])
-
         if not col_model:
             return default
 
         columns = []
         for col in col_model:
             name = col.get("columnName")
-            # skip ignored columns
             if name in IGNORE_COLUMNS:
                 continue
             columns.append({
@@ -202,13 +175,10 @@ class ReferenceWidget(QuerySelectWidget):
         return columns
 
     def get_search_index(self, context, field, default=None):
-        """Lookup the search index for fulltext searches
-        """
         prop = getattr(self, "search_index", None)
         if prop is not None:
             return prop
 
-        # BBB: search_fields
         search_fields = getattr(self, "search_fields", [])
         if not isinstance(search_fields, (tuple, list)):
             search_fields = filter(None, [search_fields])
@@ -218,8 +188,6 @@ class ReferenceWidget(QuerySelectWidget):
         return default
 
     def get_value(self, context, field, value=None):
-        """Extract the value from the request or get it from the field
-        """
         if isinstance(value, six.string_types):
             value = filter(None, value.split("\r\n"))
         if value is None:
@@ -229,8 +197,6 @@ class ReferenceWidget(QuerySelectWidget):
         return map(api.get_uid, value)
 
     def get_render_data(self, context, field, uid, template):
-        """Provides the needed data to render the display template from the UID
-        """
         regex = r"\{(.*?)\}"
         names = re.findall(regex, template)
 
@@ -241,23 +207,24 @@ class ReferenceWidget(QuerySelectWidget):
                 field.getName(), uid))
             return {}
 
-        # --- AJUSTE: usar fullname completo para pacientes ---
-        title = None
+        # --- AJUSTE: usar fullname de Patient ---
+        fullname = None
         try:
             if hasattr(obj, "getFullname"):
-                title = obj.getFullname()
+                fullname = obj.getFullname()
             elif hasattr(obj, "patient_fullname"):
-                title = getattr(obj, "patient_fullname", None)
+                fullname = getattr(obj, "patient_fullname", None)
         except Exception as e:
             logger.warn("Could not build patient fullname: %s", e)
 
-        if not title:
-            title = api.get_title(obj)
+        if not fullname:
+            fullname = api.get_title(obj)
 
         data = {
             "uid": api.get_uid(obj),
             "url": api.get_url(obj),
-            "Title": title,
+            "Fullname": fullname,
+            "Title": fullname,  # retrocompatibilidad
             "Description": api.get_description(obj),
         }
         for name in names:
@@ -270,8 +237,6 @@ class ReferenceWidget(QuerySelectWidget):
         return data
 
     def render_reference(self, context, field, uid):
-        """Returns a rendered HTML element for the reference
-        """
         display_template = self.get_display_template(context, field, uid)
         template = string.Template(display_template)
         try:
