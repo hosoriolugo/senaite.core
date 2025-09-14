@@ -5,7 +5,7 @@
 
         <!-- Izquierda -->
         <p class="text-left">
-          <span tal:define="now python: DateTime().year()"
+          <span tal:define="now python: modules['DateTime'].DateTime().year()"
                 tal:content="string:© 2017-${now} INFOLABSA LIMS">
             © 2017-2025 INFOLABSA LIMS
           </span>
