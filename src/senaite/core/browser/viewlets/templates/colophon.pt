@@ -2,25 +2,19 @@
   <div class="container-fluid">
     <div class="row">
       <div class="col-md-12 text-muted">
-
-        <!-- Izquierda - Copyright -->
-        <p class="text-left">
-          <span tal:define="now python: DateTime().year()"
-                tal:content="string:© 2017-${now} INFOLABSA LIMS" />
-        </p>
-
+        
         <!-- Centro - Información del desarrollador -->
         <p class="text-center">
-          <span tal:content="string:INFOLABSA es desarrollado por:" />
+          INFOLABSA es desarrollado por: 
           <a href="https://hinesimedica.com"
-             title="Este software fue desarrollado por DICIPACS.">
+             title="Somos desarrolladores de software para el sector salud">
             DICIPACS
           </a>
         </p>
 
         <!-- Centro - Derechos reservados -->
         <p class="text-center">
-          <span tal:content="string:Todos los derechos reservados - V2.6.1" />
+          Todos los derechos reservados - V2.6.1
         </p>
 
       </div>
