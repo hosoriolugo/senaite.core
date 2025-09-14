@@ -41,7 +41,6 @@ class ReferenceWidget(QuerySelectWidget):
 
     _properties = QuerySelectWidget._properties.copy()
     _properties.update({
-
         "value_key": "uid",
         "value_query_index": "UID",
 
@@ -98,11 +97,6 @@ class ReferenceWidget(QuerySelectWidget):
 
     def get_multi_valued(self, context, field, default=None):
         """Lookup if the field is single or multi valued
-
-        :param context: The current context of the field
-        :param field: The current field of the widget
-        :param default: The default property value
-        :returns: True if the field is multi valued, otherwise False
         """
         multi_valued = getattr(field, "multiValued", None)
         if multi_valued is None:
@@ -111,12 +105,6 @@ class ReferenceWidget(QuerySelectWidget):
 
     def get_display_template(self, context, field, default=None):
         """Lookup the display template
-
-        :param context: The current context of the field
-        :param field: The current field of the widget
-        :param default: The default property value
-        :returns: Template that is interpolated by the JS widget with the
-                  mapped values found in records
         """
         # check if the new `display_template` property is set
         prop = getattr(self, "display_template", None)
@@ -132,11 +120,6 @@ class ReferenceWidget(QuerySelectWidget):
 
     def get_catalog(self, context, field, default=None):
         """Lookup the catalog to query
-
-        :param context: The current context of the field
-        :param field: The current field of the widget
-        :param default: The default property value
-        :returns: Catalog name to query
         """
         # check if the new `catalog` property is set
         prop = getattr(self, "catalog", None)
@@ -156,11 +139,6 @@ class ReferenceWidget(QuerySelectWidget):
 
     def get_query(self, context, field, default=None):
         """Lookup the catalog query
-
-        :param context: The current context of the field
-        :param field: The current field of the widget
-        :param default: The default property value
-        :returns: Base catalog query
         """
         base_query = self.get_base_query(context, field)
 
@@ -184,8 +162,6 @@ class ReferenceWidget(QuerySelectWidget):
 
     def get_base_query(self, context, field):
         """BBB: Get the base query from the widget
-
-        NOTE: Base query can be a callable
         """
         base_query = getattr(self, "base_query", {})
         if callable(base_query):
@@ -200,11 +176,6 @@ class ReferenceWidget(QuerySelectWidget):
 
     def get_columns(self, context, field, default=None):
         """Lookup the columns to show in the results popup
-
-        :param context: The current context of the field
-        :param field: The current field of the widget
-        :param default: The default property value
-        :returns: List column records to display
         """
         prop = getattr(self, "columns", [])
         if len(prop) > 0:
@@ -232,11 +203,6 @@ class ReferenceWidget(QuerySelectWidget):
 
     def get_search_index(self, context, field, default=None):
         """Lookup the search index for fulltext searches
-
-        :param context: The current context of the field
-        :param field: The current field of the widget
-        :param default: The default property value
-        :returns: ZCText compatible search index
         """
         prop = getattr(self, "search_index", None)
         if prop is not None:
@@ -253,16 +219,9 @@ class ReferenceWidget(QuerySelectWidget):
 
     def get_value(self, context, field, value=None):
         """Extract the value from the request or get it from the field
-
-        :param context: The current context of the field
-        :param field: The current field of the widget
-        :param value: The current set value
-        :returns: List of UIDs
         """
-        # the value might come from the request, e.g. on object creation
         if isinstance(value, six.string_types):
             value = filter(None, value.split("\r\n"))
-        # we handle always lists in the templates
         if value is None:
             return []
         if not isinstance(value, (list, tuple)):
@@ -271,8 +230,6 @@ class ReferenceWidget(QuerySelectWidget):
 
     def get_render_data(self, context, field, uid, template):
         """Provides the needed data to render the display template from the UID
-
-        :returns: Dictionary with data needed to render the display template
         """
         regex = r"\{(.*?)\}"
         names = re.findall(regex, template)
@@ -284,10 +241,23 @@ class ReferenceWidget(QuerySelectWidget):
                 field.getName(), uid))
             return {}
 
+        # --- AJUSTE: usar fullname completo para pacientes ---
+        title = None
+        try:
+            if hasattr(obj, "getFullname"):
+                title = obj.getFullname()
+            elif hasattr(obj, "patient_fullname"):
+                title = getattr(obj, "patient_fullname", None)
+        except Exception as e:
+            logger.warn("Could not build patient fullname: %s", e)
+
+        if not title:
+            title = api.get_title(obj)
+
         data = {
             "uid": api.get_uid(obj),
             "url": api.get_url(obj),
-            "Title": api.get_title(obj),
+            "Title": title,
             "Description": api.get_description(obj),
         }
         for name in names:
@@ -307,7 +277,6 @@ class ReferenceWidget(QuerySelectWidget):
         try:
             data = self.get_render_data(context, field, uid, display_template)
         except ValueError as e:
-            # Current user might not have privileges to view this object
             logger.error(e.message)
             return ""
 
