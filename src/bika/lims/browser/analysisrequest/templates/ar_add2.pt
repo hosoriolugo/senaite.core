@@ -360,7 +360,8 @@
 
       <form id="analysisrequest_add_form"
             name="analysisrequest_add_form"
-            method="POST">
+            method="POST"
+            enctype="multipart/form-data">
 
         <input type="hidden" name="submitted" value="1"/>
         <input type="hidden" name="portal_url" value="" tal:attributes="value portal/absolute_url"/>
@@ -502,7 +503,7 @@
                                  tal:condition="python:any(services.values())">
 
               <tr tal:attributes="poc poc;
-                                  data-poc poc;
+                                  data-poc python:poc;
                                   class string:${poc} service-listing-header field-services-header">
                 <td colspan="2">
                   <div class="poc-service-title">
@@ -519,7 +520,7 @@
                 <td tal:attributes="colspan python:1 + ar_count">
                   <div class="input-group">
                     <input type="text" class="form-control services-filter"
-                           data-poc="poc"
+                           tal:attributes="data-poc python:poc"
                            i18n:attributes="placeholder"
                            placeholder="Filter analyses by name..."/>
                     <div class="input-group-append">
@@ -539,7 +540,6 @@
                       i18n:attributes="title"
                       tal:attributes="data-category python:category_id;
                                       poc python:poc;
-                                      category python:'field';
                                       class python:'{} category'.format(poc);">
                     <td class="services-category-header">
                       <span class="services-category-title"
