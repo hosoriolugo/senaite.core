@@ -875,8 +875,7 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
             "id": api.get_id(obj),
             "uid": api.get_uid(obj),
             "url": api.get_url(obj),
-            "title": obj.getFullname() if hasattr(obj, "getFullname") else api.get_title(obj),
-            "mrn": obj.getMRN() if hasattr(obj, "getMRN") else "",
+            "title": api.get_title(obj),
             "field_values": {},
             "filter_queries": {},
         }
@@ -927,13 +926,11 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
                 "uid": uid,
                 "title": fullname,
                 "fullname": fullname,
-            "mrn": mrn if "mrn" in locals() else None,
                 "email": email
             })
 
         info.update({
             "fullname": fullname,
-            "mrn": mrn if "mrn" in locals() else None,
             "email": email,
             "field_values": {
                 "CCContact": cccontacts
@@ -1979,43 +1976,23 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
             # Create as many samples as required
             num_samples = self.get_num_samples(record)
             for idx in range(num_samples):
-                if "Contact" in record:
-                    patient_obj = self.get_object_by_uid(record.get("Contact"))
-                    if patient_obj:
-                        if hasattr(patient_obj, "getMRN"):
-                            record['MedicalRecordNumber'] = patient_obj.getMRN()
-                        if hasattr(patient_obj, "getFullname"):
-                            record['PatientFullName'] = patient_obj.getFullname()
                 # --- MRN/Patient persistence (native field names) ---
-try:
-    patient_obj = None
-    # Prefer Contact (patient) from record when available
-    if "Contact" in record and record.get("Contact"):
-        patient_obj = self.get_object_by_uid(record.get("Contact"))
-    # As a fallback, if we are on a Patient context, use it
-    if not patient_obj and hasattr(self.context, "getMRN"):
-        patient_obj = self.context
-    if patient_obj:
-        # MedicalRecordNumber
-        try:
-            mrn_value = getattr(patient_obj, "getMRN", lambda: None)()
-        except Exception:
-            mrn_value = None
-        if mrn_value:
-            record["MedicalRecordNumber"] = mrn_value
-        # PatientFullName
-        if "PatientFullName" not in record or not record.get("PatientFullName"):
-            # Use full name string (works with both entry modes downstream)
-            try:
-                fullname_value = getattr(patient_obj, "getFullname", lambda: None)()
-            except Exception:
-                fullname_value = None
-            if fullname_value:
-                record["PatientFullName"] = fullname_value
-except Exception:
-    # Do not block sample creation on enrichment issues
-    pass
-# --- end MRN/Patient enrichment ---
+                try:
+                    patient_obj = None
+                    if "Contact" in record and record.get("Contact"):
+                        patient_obj = self.get_object_by_uid(record.get("Contact"))
+                    if not patient_obj and hasattr(self.context, "getMRN"):
+                        patient_obj = self.context
+                    if patient_obj:
+                        mrn_value = getattr(patient_obj, "getMRN", lambda: None)()
+                        if mrn_value:
+                            record["MedicalRecordNumber"] = mrn_value
+                        fullname_value = getattr(patient_obj, "getFullname", lambda: None)()
+                        if fullname_value:
+                            record["PatientFullName"] = fullname_value
+                except Exception:
+                    pass
+                # --- end MRN/Patient enrichment ---
                 sample = crar(client, self.request, record)
 
                 # Create the attachments
@@ -2114,46 +2091,3 @@ except Exception:
             return dict(new_pairs)
 
         return json.loads(body, object_hook=encode_hook)
-
-
-from senaite.patient.api import get_patient_name_entry_mode
-
-class PatientSampleAddView(AnalysisRequestAddView):
-    def get_default_value(self, field, context, arnum):
-        name = field.getName()
-        mrn = self.context.getMRN()
-
-        if name == "MedicalRecordNumber":
-            if not mrn:
-                return ""
-            return mrn
-        elif name == "PatientFullName":
-            entry_mode = get_patient_name_entry_mode()
-            if entry_mode == "parts":
-                return {
-                    "firstname": self.context.getFirstname(),
-                    "middlename": self.context.getMiddlename(),
-                    "lastname": self.context.getLastname(),
-                    "maternal_lastname": self.context.getMaternalLastname(),
-                }
-            elif entry_mode == "first_last":
-                return {
-                    "firstname": self.context.getFirstname(),
-                    "lastname": self.context.getLastname(),
-                }
-            else:
-                return {"firstname": self.context.getFullname()}
-        elif name == "PatientAddress":
-            address = self.context.getFormattedAddress()
-            return api.to_utf8(address)
-        elif name == "DateOfBirth":
-            from_age = False
-            birthdate = self.context.getBirthdate(as_date=False)
-            estimated = self.context.getEstimatedBirthdate()
-            return [birthdate, from_age, estimated]
-        elif name == "Sex":
-            return self.context.getSex()
-        elif name == "Gender":
-            return self.context.getGender()
-
-        return super(PatientSampleAddView, self).get_default_value(field, context, arnum)
