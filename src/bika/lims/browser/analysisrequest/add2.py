@@ -1983,9 +1983,39 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
                     patient_obj = self.get_object_by_uid(record.get("Contact"))
                     if patient_obj:
                         if hasattr(patient_obj, "getMRN"):
-                            record["patient_mrn"] = patient_obj.getMRN()
+                            record['MedicalRecordNumber'] = patient_obj.getMRN()
                         if hasattr(patient_obj, "getFullname"):
-                            record["patient_fullname"] = patient_obj.getFullname()
+                            record['PatientFullName'] = patient_obj.getFullname()
+                # --- MRN/Patient persistence (native field names) ---
+try:
+    patient_obj = None
+    # Prefer Contact (patient) from record when available
+    if "Contact" in record and record.get("Contact"):
+        patient_obj = self.get_object_by_uid(record.get("Contact"))
+    # As a fallback, if we are on a Patient context, use it
+    if not patient_obj and hasattr(self.context, "getMRN"):
+        patient_obj = self.context
+    if patient_obj:
+        # MedicalRecordNumber
+        try:
+            mrn_value = getattr(patient_obj, "getMRN", lambda: None)()
+        except Exception:
+            mrn_value = None
+        if mrn_value:
+            record["MedicalRecordNumber"] = mrn_value
+        # PatientFullName
+        if "PatientFullName" not in record or not record.get("PatientFullName"):
+            # Use full name string (works with both entry modes downstream)
+            try:
+                fullname_value = getattr(patient_obj, "getFullname", lambda: None)()
+            except Exception:
+                fullname_value = None
+            if fullname_value:
+                record["PatientFullName"] = fullname_value
+except Exception:
+    # Do not block sample creation on enrichment issues
+    pass
+# --- end MRN/Patient enrichment ---
                 sample = crar(client, self.request, record)
 
                 # Create the attachments
@@ -2095,8 +2125,8 @@ class PatientSampleAddView(AnalysisRequestAddView):
 
         if name == "MedicalRecordNumber":
             if not mrn:
-                return {"temporary": True, "value": ""}
-            return {"temporary": False, "value": mrn}
+                return ""
+            return mrn
         elif name == "PatientFullName":
             entry_mode = get_patient_name_entry_mode()
             if entry_mode == "parts":
