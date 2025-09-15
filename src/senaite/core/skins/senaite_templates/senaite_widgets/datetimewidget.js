@@ -19,7 +19,7 @@ document.addEventListener("DOMContentLoaded", () => {
         this.timefields = timefields;
         this.bind_fields();
         this.disable_autocomplete();
-        this.reset_forms();
+        // ❌ Eliminado el reset global de formularios
         this.autofill_now();
       } else {
         requestAnimationFrame(() => this.waitForFields());
@@ -42,9 +42,9 @@ document.addEventListener("DOMContentLoaded", () => {
       this.timefields.forEach((tf) => tf.setAttribute("autocomplete", "new-password"));
     }
 
-    // 🔹 Limpia valores restaurados por el navegador antes de rellenar
+    // 🔹 Mantengo el método pero sin tocar TinyMCE ni resetear forms globales
     reset_forms() {
-      document.querySelectorAll("form").forEach((form) => form.reset());
+      // Intencionalmente vacío: antes se hacía form.reset() y rompía TinyMCE
     }
 
     set_field(field, value) {
