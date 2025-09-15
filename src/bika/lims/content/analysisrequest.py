@@ -229,7 +229,27 @@ schema = BikaSchema.copy() + Schema((
         ),
     ),
 
-    UIDReferenceField(
+    
+    StringField(
+        "patient_mrn",
+        schemata="AR",
+        required=0,
+        widget=StringWidget(
+            label=_("Patient MRN"),
+            visible={"edit": "invisible", "view": "visible"},
+        ),
+    ),
+
+    StringField(
+        "patient_fullname",
+        schemata="AR",
+        required=0,
+        widget=StringWidget(
+            label=_("Patient Fullname"),
+            visible={"edit": "invisible", "view": "visible"},
+        ),
+    ),
+UIDReferenceField(
         "Client",
         required=1,
         allowed_types=("Client",),
@@ -2143,3 +2163,4 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
 
 
 registerType(AnalysisRequest, PROJECTNAME)
+
