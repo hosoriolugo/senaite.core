@@ -2084,3 +2084,46 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
             return dict(new_pairs)
 
         return json.loads(body, object_hook=encode_hook)
+
+
+from senaite.patient.api import get_patient_name_entry_mode
+
+class PatientSampleAddView(AnalysisRequestAddView):
+    def get_default_value(self, field, context, arnum):
+        name = field.getName()
+        mrn = self.context.getMRN()
+
+        if name == "MedicalRecordNumber":
+            if not mrn:
+                return {"temporary": True, "value": ""}
+            return {"temporary": False, "value": mrn}
+        elif name == "PatientFullName":
+            entry_mode = get_patient_name_entry_mode()
+            if entry_mode == "parts":
+                return {
+                    "firstname": self.context.getFirstname(),
+                    "middlename": self.context.getMiddlename(),
+                    "lastname": self.context.getLastname(),
+                    "maternal_lastname": self.context.getMaternalLastname(),
+                }
+            elif entry_mode == "first_last":
+                return {
+                    "firstname": self.context.getFirstname(),
+                    "lastname": self.context.getLastname(),
+                }
+            else:
+                return {"firstname": self.context.getFullname()}
+        elif name == "PatientAddress":
+            address = self.context.getFormattedAddress()
+            return api.to_utf8(address)
+        elif name == "DateOfBirth":
+            from_age = False
+            birthdate = self.context.getBirthdate(as_date=False)
+            estimated = self.context.getEstimatedBirthdate()
+            return [birthdate, from_age, estimated]
+        elif name == "Sex":
+            return self.context.getSex()
+        elif name == "Gender":
+            return self.context.getGender()
+
+        return super(PatientSampleAddView, self).get_default_value(field, context, arnum)
