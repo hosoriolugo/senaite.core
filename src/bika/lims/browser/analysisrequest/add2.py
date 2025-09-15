@@ -875,7 +875,8 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
             "id": api.get_id(obj),
             "uid": api.get_uid(obj),
             "url": api.get_url(obj),
-            "title": api.get_title(obj),
+            "title": obj.getFullname() if hasattr(obj, "getFullname") else api.get_title(obj),
+            "mrn": obj.getMRN() if hasattr(obj, "getMRN") else "",
             "field_values": {},
             "filter_queries": {},
         }
@@ -926,11 +927,13 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
                 "uid": uid,
                 "title": fullname,
                 "fullname": fullname,
+            "mrn": mrn if "mrn" in locals() else None,
                 "email": email
             })
 
         info.update({
             "fullname": fullname,
+            "mrn": mrn if "mrn" in locals() else None,
             "email": email,
             "field_values": {
                 "CCContact": cccontacts
@@ -1976,6 +1979,13 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
             # Create as many samples as required
             num_samples = self.get_num_samples(record)
             for idx in range(num_samples):
+                if "Contact" in record:
+                    patient_obj = self.get_object_by_uid(record.get("Contact"))
+                    if patient_obj:
+                        if hasattr(patient_obj, "getMRN"):
+                            record["patient_mrn"] = patient_obj.getMRN()
+                        if hasattr(patient_obj, "getFullname"):
+                            record["patient_fullname"] = patient_obj.getFullname()
                 sample = crar(client, self.request, record)
 
                 # Create the attachments
