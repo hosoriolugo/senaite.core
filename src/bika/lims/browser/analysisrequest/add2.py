@@ -1868,6 +1868,22 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
                 if not value:
                     continue
 
+            # --- 🔧 Copiar MRN y Fullname desde Patient al AR ---
+            patient_uid = record.get("Patient")
+            if patient_uid:
+                patient = self.get_object_by_uid(patient_uid)
+                if patient:
+                    mrn = getattr(patient, "getMRN", lambda: "")()
+                    fullname = getattr(patient, "getFullname", lambda: "")()
+                    record["MedicalRecordNumber"] = mrn
+                    record["PatientFullName"] = fullname
+                    logger.info(
+                        "Copiado MRN={} y FullName='{}' al record del AR".format(
+                            mrn, fullname
+                        )
+                    )
+
+
                 # store the processed value as the valid record
                 valid_record[field_name] = value
 
