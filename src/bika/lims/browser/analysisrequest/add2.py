@@ -30,7 +30,6 @@ from bika.lims import api
 from bika.lims import bikaMessageFactory as _
 from bika.lims import logger
 from bika.lims.api.analysisservice import get_calculation_dependencies_for
-from bika.lims.api.analysisservice import get_service_dependencies_for
 from bika.lims.api.security import check_permission
 from bika.lims.decorators import returns_json
 from bika.lims.interfaces import IAddSampleConfirmation
@@ -940,46 +939,6 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
         return info
 
     @cache(cache_key)
-    def get_patient_info(self, obj):
-        """Returns patient info with fullname, MRN and temporary flag"""
-        info = self.get_base_info(obj)
-        # Fullname using robust composer
-        try:
-            fullname = self._compose_fullname(obj)
-        except Exception:
-            try:
-                fullname = obj.getFullname()
-            except Exception:
-                fullname = info.get("title", "")
-        # Medical Record Number (MRN)
-        mrn = ""
-        for attr in ("getMedicalRecordNumber", "MedicalRecordNumber", "getMRN"):
-            try:
-                if hasattr(obj, attr):
-                    val = getattr(obj, attr)
-                    mrn = val() if callable(val) else (val or "")
-                    if mrn:
-                        break
-            except Exception:
-                pass
-        # Temporary patient flag (best-effort)
-        is_temporary = False
-        for attr in ("getIsTemporary", "isTemporary", "getTemporary", "Temporary", "getIsTemp"):
-            try:
-                if hasattr(obj, attr):
-                    val = getattr(obj, attr)
-                    is_temporary = bool(val() if callable(val) else val)
-                    break
-            except Exception:
-                pass
-        info.update({
-            "fullname": fullname,
-            "mrn": mrn,
-            "is_temporary": is_temporary,
-        })
-        return info
-
-    @cache(cache_key)
     def get_service_info(self, obj):
         """Returns the info for a Service
         """
@@ -1108,7 +1067,6 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
         info["field_values"].update({
             "Client": self.to_field_value(client),
             "Contact": self.to_field_value(contact),
-            "Patient": self.to_field_value(patient),
             "CCContact": map(self.to_field_value, cccontacts),
             "CCEmails": obj.getCCEmails(),
             "Batch": self.to_field_value(batch),
@@ -1126,8 +1084,7 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
             "StorageLocation": self.to_field_value(storage_location),
             "Container": self.to_field_value(container),
             "SamplingDeviation": self.to_field_value(deviation),
-            "Composite": {"value": obj.getComposite()},
-            "MedicalRecordNumber": {"value": (patient and getattr(patient, "getMedicalRecordNumber", lambda: "")() or "")}
+            "Composite": {"value": obj.getComposite()}
         })
 
         return info
@@ -1305,10 +1262,6 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
             # service_to_profiles, profiles_to_services
             profiles_additional = self.get_profiles_additional_info(metadata)
             metadata.update(profiles_additional)
-
-            # dependencies
-            dependencies = self.get_unmet_dependencies_info(metadata)
-            metadata.update(dependencies)
 
             # services conducted beyond the holding time limit
             beyond = self.get_services_beyond_holding_time(record)
@@ -1490,33 +1443,6 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
             "profile_to_services": profile_to_services,
             "service_to_profiles": service_to_profiles,
             "service_metadata": service_metadata,
-        }
-
-    def get_unmet_dependencies_info(self, metadata):
-        # mapping of service UID -> unmet service dependency UIDs
-        unmet_dependencies = {}
-        services = metadata.get("service_metadata", {}).copy()
-        for uid, obj_info in services.items():
-            obj = self.get_object_by_uid(uid)
-            # get the dependencies of this service
-            deps = get_service_dependencies_for(obj)
-
-            # check for unmet dependencies
-            for dep in deps["dependencies"]:
-                # we use the UID to test for equality
-                dep_uid = api.get_uid(dep)
-                if dep_uid not in services:
-                    if uid in unmet_dependencies:
-                        unmet_dependencies[uid].append(self.get_base_info(dep))
-                    else:
-                        unmet_dependencies[uid] = [self.get_base_info(dep)]
-            # remember the dependencies in the service metadata
-            metadata["service_metadata"][uid].update({
-                "dependencies": map(
-                    self.get_base_info, deps["dependencies"]),
-            })
-        return {
-            "unmet_dependencies": unmet_dependencies
         }
 
     def get_objects_info(self, record, key):
@@ -1952,20 +1878,6 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
                     fielderrors[field_name] = error
 
             # add the attachments to the record
-            # If Patient present and MRN missing, auto-fill MRN from the patient
-            if "Patient" in valid_record and not valid_record.get("MedicalRecordNumber"):
-                try:
-                    pat_obj = self.get_object_by_uid(valid_record.get("Patient"))
-                except Exception:
-                    pat_obj = None
-                if pat_obj is not None:
-                    try:
-                        mrn_val = getattr(pat_obj, "getMedicalRecordNumber", lambda: "")() or ""
-                        if mrn_val:
-                            valid_record["MedicalRecordNumber"] = mrn_val
-                    except Exception:
-                        pass
-
             valid_record["attachments"] = filter(None, attachments)
 
             # append the valid record to the list of valid records
@@ -2033,22 +1945,6 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
             num_samples = self.get_num_samples(record)
             for idx in range(num_samples):
                 sample = crar(client, self.request, record)
-
-                # Persist MRN on sample if field exists
-                try:
-                    mrn_val = record.get("MedicalRecordNumber", "")
-                    if (not mrn_val) and record.get("Patient"):
-                        pat_obj = self.get_object_by_uid(record.get("Patient"))
-                        if pat_obj is not None:
-                            mrn_val = getattr(pat_obj, "getMedicalRecordNumber", lambda: "")() or ""
-                    if mrn_val:
-                        for setter in ("setMedicalRecordNumber", "setMRN"):
-                            if hasattr(sample, setter):
-                                getattr(sample, setter)(mrn_val)
-                                break
-                except Exception:
-                    pass
-
 
                 # Create the attachments
                 for attachment_record in attachments:
