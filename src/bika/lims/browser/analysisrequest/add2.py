@@ -907,6 +907,32 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
         return info
 
     @cache(cache_key)
+    
+    def _compose_fullname(self, person):
+        """Return a full name using 4 fields when available."""
+        parts = []
+        for attr in ("getFirstName", "getMiddleName", "getSecondName",
+                     "getLastName", "getSecondLastName"):
+            if hasattr(person, attr):
+                try:
+                    val = getattr(person, attr)() or ""
+                except Exception:
+                    val = ""
+                if val:
+                    parts.append(val)
+        if parts:
+            return u" ".join(parts)
+        try:
+            return person.getFullname()
+        except Exception:
+            try:
+                return api.safe_unicode(person.Title())
+            except Exception:
+                try:
+                    return api.get_id(person)
+                except Exception:
+                    return u"<no name>"
+    
     def get_contact_info(self, obj):
         """Returns the client info of an object
         """
@@ -1057,7 +1083,7 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
         container = obj.getContainer()
         deviation = obj.getSamplingDeviation()
         cccontacts = obj.getCCContact() or []
-        contact = obj.getContact()
+        contact = obj.getPatient()
 
         info.update({
             "composite": obj.getComposite(),
