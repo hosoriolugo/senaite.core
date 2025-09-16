@@ -133,10 +133,10 @@ from zope.interface import alsoProvides
 from zope.interface import implements
 from zope.interface import noLongerProvides
 
-
 IMG_SRC_RX = re.compile(r'<img.*?src="(.*?)"')
 IMG_DATA_SRC_RX = re.compile(r'<img.*?src="(data:image/.*?;base64,)(.*?)"')
 FINAL_STATES = ["published", "retracted", "rejected", "cancelled"]
+DETACHED_STATES = ["retracted", "rejected"]
 
 
 # SCHEMA DEFINITION
@@ -229,27 +229,7 @@ schema = BikaSchema.copy() + Schema((
         ),
     ),
 
-    
-    StringField(
-        "patient_mrn",
-        schemata="AR",
-        required=0,
-        widget=StringWidget(
-            label=_("Patient MRN"),
-            visible={"edit": "invisible", "view": "visible"},
-        ),
-    ),
-
-    StringField(
-        "patient_fullname",
-        schemata="AR",
-        required=0,
-        widget=StringWidget(
-            label=_("Patient Fullname"),
-            visible={"edit": "invisible", "view": "visible"},
-        ),
-    ),
-UIDReferenceField(
+    UIDReferenceField(
         "Client",
         required=1,
         allowed_types=("Client",),
@@ -439,33 +419,36 @@ UIDReferenceField(
         )
     ),
 
-    # TODO Workflow - Request - Fix DateSampled inconsistencies...
-
-DateTimeField(
-    'DateSampled',
-    mode="rw",
-    max="getMaxDateSampled",
-    read_permission=View,
-    write_permission=FieldEditDateSampled,
-    widget=DateTimeWidget(
-        label=_(
-            "label_sample_datesampled",
-            default="Date Sampled"
+    # TODO Workflow - Request - Fix DateSampled inconsistencies. At the moment,
+    # one can create an AR (with code) with DateSampled set when sampling_wf at
+    # the same time sampling workflow is active. This might cause
+    # inconsistencies: AR still in `to_be_sampled`, but getDateSampled returns
+    # a valid date!
+    DateTimeField(
+        'DateSampled',
+        mode="rw",
+        max="getMaxDateSampled",
+        read_permission=View,
+        write_permission=FieldEditDateSampled,
+        widget=DateTimeWidget(
+            label=_(
+                "label_sample_datesampled",
+                default="Date Sampled"
+            ),
+            description=_(
+                "description_sample_datesampled",
+                default="The date when the sample was taken"
+            ),
+            size=20,
+            show_time=True,
+            visible={
+                'add': 'edit',
+                'secondary': 'disabled',
+                'header_table': 'prominent',
+            },
+            render_own_label=True,
         ),
-        description=_(
-            "description_sample_datesampled",
-            default="The date when the sample was taken"
-        ),
-        size=20,
-        show_time=True,
-        visible={
-            'add': 'edit',
-            'secondary': 'disabled',
-            'header_table': 'prominent',
-        },
-        render_own_label=True,
     ),
-),
 
     StringField(
         'Sampler',
@@ -477,6 +460,7 @@ DateTimeField(
             format='select',
             label=_("Sampler"),
             description=_("The person who took the sample"),
+            # see SamplingWOrkflowWidgetVisibility
             visible={
                 'add': 'edit',
                 'header_table': 'prominent',
@@ -500,6 +484,31 @@ DateTimeField(
                 'add': 'edit',
             },
             render_own_label=True,
+        ),
+    ),
+
+    DateTimeField(
+        'SamplingDate',
+        mode="rw",
+        min="created",
+        read_permission=View,
+        write_permission=FieldEditSamplingDate,
+        widget=DateTimeWidget(
+            label=_(
+                "label_sample_samplingdate",
+                default="Expected Sampling Date"
+            ),
+            description=_(
+                "description_sample_samplingdate",
+                default="The date when the sample will be taken"
+            ),
+            size=20,
+            show_time=True,
+            render_own_label=True,
+            visible={
+                'add': 'edit',
+                'secondary': 'disabled',
+            },
         ),
     ),
 
@@ -626,6 +635,7 @@ DateTimeField(
         ),
     ),
 
+    # TODO Sample cleanup - This comes from partition
     DurationField(
         "RetentionPeriod",
         required=0,
@@ -656,7 +666,7 @@ DateTimeField(
     UIDReferenceField(
         "Specification",
         required=0,
-        primary_bound=True,
+        primary_bound=True,  # field changes propagate to partitions
         allowed_types=("AnalysisSpec",),
         mode="rw",
         read_permission=View,
@@ -685,6 +695,13 @@ DateTimeField(
         )
     ),
 
+    # Field to keep the result ranges from the specification initially set
+    # through "Specifications" field. This guarantees that the result ranges
+    # set by default to this Sample won't change even if the Specifications
+    # object referenced gets modified thereafter.
+    # This field does not consider result ranges manually set to analyses.
+    # Therefore, is also used to "detect" changes between the result ranges
+    # specifically set to analyses and the results ranges set to the sample
     ResultsRangesField(
         "ResultsRange",
         write_permission=FieldEditSpecification,
@@ -724,6 +741,7 @@ DateTimeField(
         )
     ),
 
+    # Sample field
     UIDReferenceField(
         "SamplePoint",
         allowed_types=("SamplePoint",),
@@ -747,6 +765,7 @@ DateTimeField(
         )
     ),
 
+    # Remove in favor of senaite.storage?
     UIDReferenceField(
         "StorageLocation",
         allowed_types=("StorageLocation",),
@@ -946,6 +965,7 @@ DateTimeField(
         ),
     ),
 
+    # TODO Review permission for this field Analyses
     ARAnalysesField(
         'Analyses',
         required=1,
@@ -969,6 +989,10 @@ DateTimeField(
         relationship='AnalysisRequestAttachment',
         mode="rw",
         read_permission=View,
+        # The addition and removal of attachments is governed by the specific
+        # permissions "Add Sample Attachment" and "Delete Sample Attachment",
+        # so we assume here that the write permission is the less restrictive
+        # "ModifyPortalContent"
         write_permission=ModifyPortalContent,
         widget=ComputedWidget(
             visible={
@@ -978,6 +1002,8 @@ DateTimeField(
         )
     ),
 
+    # This is a virtual field and handled only by AR Add View to allow multi
+    # attachment upload in AR Add. It should never contain an own value!
     FileField(
         '_ARAttachment',
         widget=FileWidget(
@@ -994,6 +1020,7 @@ DateTimeField(
         )
     ),
 
+    # readonly field
     UIDReferenceField(
         "Invoice",
         allowed_types=("Invoice",),
@@ -1133,49 +1160,48 @@ DateTimeField(
 
     ComputedField(
         'BatchURL',
-        expression="here.getBatch().absolute_url_path() "
+        expression="here.getBatch().absolute_url_path() " \
                    "if here.getBatch() else ''",
         widget=ComputedWidget(visible=False),
     ),
 
     ComputedField(
         'ContactUsername',
-        expression="here.getContact().getUsername() "
+        expression="here.getContact().getUsername() " \
                    "if here.getContact() else ''",
         widget=ComputedWidget(visible=False),
     ),
 
     ComputedField(
         'ContactFullName',
-        expression="here.getContact().getFullname() "
+        expression="here.getContact().getFullname() " \
                    "if here.getContact() else ''",
         widget=ComputedWidget(visible=False),
     ),
 
     ComputedField(
         'ContactEmail',
-        expression="here.getContact().getEmailAddress() "
+        expression="here.getContact().getEmailAddress() " \
                    "if here.getContact() else ''",
         widget=ComputedWidget(visible=False),
     ),
 
     ComputedField(
         'SampleTypeUID',
-        expression="here.getSampleType().UID() "
+        expression="here.getSampleType().UID() " \
                    "if here.getSampleType() else ''",
         widget=ComputedWidget(visible=False),
     ),
 
     ComputedField(
         'SamplePointUID',
-        expression="here.getSamplePoint().UID() "
+        expression="here.getSamplePoint().UID() " \
                    "if here.getSamplePoint() else ''",
         widget=ComputedWidget(visible=False),
     ),
-
     ComputedField(
         'StorageLocationUID',
-        expression="here.getStorageLocation().UID() "
+        expression="here.getStorageLocation().UID() " \
                    "if here.getStorageLocation() else ''",
         widget=ComputedWidget(visible=False),
     ),
@@ -1188,7 +1214,7 @@ DateTimeField(
 
     ComputedField(
         'TemplateURL',
-        expression="here.getTemplate().absolute_url_path() "
+        expression="here.getTemplate().absolute_url_path() " \
                    "if here.getTemplate() else ''",
         widget=ComputedWidget(visible=False),
     ),
@@ -1199,6 +1225,7 @@ DateTimeField(
         widget=ComputedWidget(visible=False),
     ),
 
+    # readonly field
     UIDReferenceField(
         "ParentAnalysisRequest",
         allowed_types=("AnalysisRequest",),
@@ -1225,6 +1252,7 @@ DateTimeField(
         )
     ),
 
+    # The Primary Sample the current sample was detached from
     UIDReferenceField(
         "DetachedFrom",
         allowed_types=("AnalysisRequest",),
@@ -1250,6 +1278,8 @@ DateTimeField(
         )
     ),
 
+    # The Analysis Request the current Analysis Request comes from because of
+    # an invalidation of the former
     UIDReferenceField(
         "Invalidated",
         allowed_types=("AnalysisRequest",),
@@ -1276,11 +1306,17 @@ DateTimeField(
         )
     ),
 
+    # For comments or results interpretation
+    # Old one, to be removed because of the incorporation of
+    # ResultsInterpretationDepts (due to LIMS-1628)
     TextField(
         'ResultsInterpretation',
         mode="rw",
         default_content_type='text/html',
+        # Input content type for the textfield
         default_output_type='text/x-html-safe',
+        # getResultsInterpretation returns a str with html tags
+        # to conserve the txt format in the report.
         read_permission=View,
         write_permission=FieldEditResultsInterpretation,
         widget=RichWidget(
@@ -1304,13 +1340,16 @@ DateTimeField(
             'richtext': _('Results Interpretation')},
         widget=RichWidget(visible=False),
      ),
-
+    # Custom settings for the assigned analysis services
+    # https://jira.bikalabs.com/browse/LIMS-1324
+    # Fields:
+    #   - uid: Analysis Service UID
+    #   - hidden: True/False. Hide/Display in results reports
     RecordsField('AnalysisServicesSettings',
                  required=0,
                  subfields=('uid', 'hidden',),
                  widget=ComputedWidget(visible=False),
                  ),
-
     StringField(
         'Printed',
         mode="rw",
@@ -1339,11 +1378,13 @@ DateTimeField(
         ),
     ),
 
+    # Initial conditions for analyses set on Sample registration
     RecordsField(
         "ServiceConditions",
         widget=ComputedWidget(visible=False)
     ),
 
+    # Number of samples to create on add form
     IntegerField(
         "NumSamples",
         default=1,
@@ -1356,6 +1397,7 @@ DateTimeField(
                 u"description_analysisrequest_numsamples",
                 default=u"Number of samples to create with the information "
                         u"provided"),
+            # This field is only visible in add sample form
             visible={
                 "add": "edit",
                 "view": "invisible",
@@ -1366,6 +1408,7 @@ DateTimeField(
         ),
     ),
 ))
+
 
 # Some schema rearrangement
 schema['title'].required = False
@@ -1387,12 +1430,18 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
         from bika.lims.catalog import getCatalog
         return getCatalog(self)
 
+    @property
+    def bika_setup(self):
+        return api.get_bika_setup()
+
     def Title(self):
         """ Return the Request ID as title """
         return self.getId()
 
     def sortable_title(self):
-        """Some lists expects this index"""
+        """
+        Some lists expects this index
+        """
         return self.getId()
 
     def Description(self):
@@ -1401,27 +1450,47 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
         return safe_unicode(descr).encode('utf-8')
 
     def setSpecification(self, value):
-        """Sets the Specifications and ResultRange values"""
+        """Sets the Specifications and ResultRange values
+        """
         current_spec = self.getRawSpecification()
         if value and current_spec == api.get_uid(value):
+            # Specification has not changed, preserve the current value to
+            # prevent result ranges (both from Sample and from analyses) from
+            # being overriden
             return
 
         self.getField("Specification").set(self, value)
 
+        # Set the value for field ResultsRange, cause Specification is only
+        # used as a template: all the results range logic relies on
+        # ResultsRange field, so changes in setup's Specification object won't
+        # have effect to already created samples
         spec = self.getSpecification()
         if spec:
+            # Update only results ranges if specs is not None, so results
+            # ranges manually set previously (e.g. via ManageAnalyses view) are
+            # preserved unless a new Specification overrides them
             self.setResultsRange(spec.getResultsRange(), recursive=False)
 
+        # Cascade the changes to partitions, but only to those that are in a
+        # status in which the specification can be updated. This prevents the
+        # re-assignment of Specifications to already verified or published
+        # samples
         permission = self.getField("Specification").write_permission
         for descendant in self.getDescendants():
             if check_permission(permission, descendant):
                 descendant.setSpecification(spec)
 
     def setResultsRange(self, value, recursive=True):
-        """Sets the results range for this Sample and analyses it contains."""
+        """Sets the results range for this Sample and analyses it contains.
+        If recursive is True, then applies the results ranges to descendants
+        (partitions) as well as their analyses too
+        """
+        # Set Results Range to the Sample
         field = self.getField("ResultsRange")
         field.set(self, value)
 
+        # Set Results Range to analyses
         for analysis in self.objectValues("Analysis"):
             if not ISubmitted.providedBy(analysis):
                 service_uid = analysis.getRawAnalysisService()
@@ -1430,55 +1499,113 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
                 analysis.reindexObject()
 
         if recursive:
+            # Cascade the changes to partitions
             permission = self.getField("Specification").write_permission
             for descendant in self.getDescendants():
                 if check_permission(permission, descendant):
                     descendant.setResultsRange(value)
 
     def setProfiles(self, value):
-        """Set Analysis Profiles to the Sample"""
+        """Set Analysis Profiles to the Sample
+        """
         if not isinstance(value, (list, tuple)):
             value = [value]
+        # filter out empties
         value = filter(None, value)
+        # ensure we have UIDs
         uids = map(api.get_uid, value)
+        # get the current set profiles
         current_profiles = self.getRawProfiles()
+        # return immediately if nothing changed
         if current_profiles == uids:
             return
 
+        # Don't add analyses from profiles during sample creation.
+        # In this case the required analyses are already extracted from all
+        # profiles.
+        #
+        # Also only add analyses if a profile (value) is selected:
+        # https://github.com/senaite/senaite.core/pull/2672
         if value and not api.is_temporary(self):
+            # get the profiles
             profiles = map(api.get_object_by_uid, uids)
-            analyses = self.getAnalyses(full_objects=True)
-            services = map(lambda an: an.getAnalysisService(), analyses)
-            services_to_add = set(services)
+
+            # create a mapping of service UID -> list of analysis review states
+            assigned_services = defaultdict(list)
+            for analysis in self.getAnalyses():
+                service_uid = analysis.getServiceUID
+                review_status = api.get_review_status(analysis)
+                assigned_services[service_uid].append(review_status)
+
+            # create a list of all open services that need to be added
+            # NOTE: missing services will be otherwise removed!
+            services_to_add = [k for k, v in assigned_services.items() if any(
+                filter(lambda rs: rs not in DETACHED_STATES, v))]
+
             for profile in profiles:
-                services_to_add.update(profile.getServices())
+                for service_uid in profile.getRawServiceUIDs():
+                    # skip previously assigned services, as they are already
+                    # added above
+                    if service_uid in assigned_services.keys():
+                        continue
+                    # add any new service
+                    services_to_add.append(service_uid)
+
+            # set all analyses
             self.setAnalyses(list(services_to_add))
 
+        # set the profiles value
         self.getField("Profiles").set(self, value)
+
+        # apply hidden services *after* the profiles have been set
         apply_hidden_services(self)
 
     def getClient(self):
-        """Returns the client this object is bound to."""
+        """Returns the client this object is bound to. We override getClient
+        from ClientAwareMixin because the "Client" schema field is only used to
+        allow the user to set the client while creating the Sample through
+        Sample Add form, but cannot be changed afterwards. The Sample is
+        created directly inside the selected client folder on submit
+        """
         parent = self.aq_parent
         if IClient.providedBy(parent):
             return parent
         elif IBatch.providedBy(parent):
             return parent.getClient()
+        # Fallback to UID reference field value
         field = self.getField("Client")
         return field.get(self)
 
     @deprecated("Will be removed in SENAITE 3.0")
     def getProfilesURL(self):
+        """Returns a list of all profile URLs
+
+        Backwards compatibility for removed computed field:
+        https://github.com/senaite/senaite.core/pull/2213
+        """
         return [profile.absolute_url_path() for profile in self.getProfiles()]
 
     @deprecated("Please use getRawProfiles instead. Will be removed in SENAITE 3.0")
     def getProfilesUID(self):
+        """Returns a list of all profile UIDs
+
+        Backwards compatibility for removed computed field:
+        https://github.com/senaite/senaite.core/pull/2213
+        """
         return self.getRawProfiles()
 
     def getProfilesTitle(self):
+        """Returns a list of all profile titles
+
+        Backwards compatibility for removed computed field:
+        https://github.com/senaite/senaite.core/pull/2213
+        """
         return [profile.Title() for profile in self.getProfiles()]
 
     def getProfilesTitleStr(self, separator=", "):
+        """Returns a comma-separated string withg the titles of the profiles
+        assigned to this Sample. Used to populate a metadata field
+        """
         return separator.join(self.getProfilesTitle())
 
     def getAnalysisService(self):
@@ -1507,6 +1634,8 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
 
     @security.public
     def getBatch(self):
+        # The parent type may be "Batch" during ar_add.
+        # This function fills the hidden field in ar_add.pt
         if self.aq_parent.portal_type == 'Batch':
             return self.aq_parent
         else:
@@ -1525,7 +1654,8 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
             self.Schema().getField('Batch').set(self, value)
 
     def getDefaultMemberDiscount(self):
-        """Compute default member discount if it applies"""
+        """Compute default member discount if it applies
+        """
         if hasattr(self, 'getMemberDiscountApplies'):
             if self.getMemberDiscountApplies():
                 settings = self.bika_setup
@@ -1535,7 +1665,10 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
 
     @security.public
     def getAnalysesNum(self):
-        """[verified, total, not_submitted, to_be_verified]"""
+        """ Returns an array with the number of analyses for the current AR in
+            different statuses, like follows:
+                [verified, total, not_submitted, to_be_verified]
+        """
         an_nums = [0, 0, 0, 0]
         for analysis in self.getAnalyses():
             review_state = analysis.review_state
@@ -1552,7 +1685,8 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
 
     @security.public
     def getResponsible(self):
-        """Return all manager info of responsible departments"""
+        """Return all manager info of responsible departments
+        """
         managers = {}
         for department in self.getDepartments():
             manager = department.getManager()
@@ -1584,10 +1718,13 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
             managers[manager_id]['departments'] = mngr_dept
         mngr_keys = managers.keys()
         mngr_info = {'ids': mngr_keys, 'dict': managers}
+
         return mngr_info
 
     @security.public
     def getManagers(self):
+        """Return all managers of responsible departments
+        """
         manager_ids = []
         manager_list = []
         for department in self.getDepartments():
@@ -1601,13 +1738,16 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
         return manager_list
 
     def getDueDate(self):
-        """Earliest due date of analyses"""
+        """Returns the earliest due date of the analyses this Analysis Request
+        contains."""
         due_dates = map(lambda an: an.getDueDate, self.getAnalyses())
         return due_dates and min(due_dates) or None
 
     security.declareProtected(View, 'getLate')
 
     def getLate(self):
+        """Return True if there is at least one late analysis in this Request
+        """
         for analysis in self.getAnalyses():
             if analysis.review_state == "retracted":
                 continue
@@ -1617,42 +1757,63 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
         return False
 
     def getRawReports(self):
-        """UIDs of reports referencing this sample"""
+        """Returns UIDs of reports with a reference to this sample
+
+        see: ARReport.ContainedAnalysisRequests field
+
+        :returns: List of report UIDs
+        """
         return get_backreferences(self, "ARReportAnalysisRequest")
 
     def getReports(self):
+        """Returns a list of report objects
+
+        :returns: List of report objects
+        """
         return list(map(api.get_object, self.getRawReports()))
 
     def getPrinted(self):
-        """0/1/2 printed state"""
+        """ returns "0", "1" or "2" to indicate Printed state.
+            0 -> Never printed.
+            1 -> Printed after last publish
+            2 -> Printed but republished afterwards.
+        """
         if not self.getDatePublished():
             return "0"
+
         report_uids = self.getRawReports()
         if not report_uids:
             return "0"
+
         last_report = api.get_object(report_uids[-1])
         if last_report.getDatePrinted():
             return "1"
+
         for report_uid in report_uids[:-1]:
             report = api.get_object(report_uid)
             if report.getDatePrinted():
                 return "2"
+
         return "0"
 
     @security.protected(View)
     def getBillableItems(self):
-        """Items to be billed"""
+        """Returns the items to be billed
+        """
+        # Assigned profiles
         profiles = self.getProfiles()
+        # Billable profiles which have a fixed price set
         billable_profiles = filter(
             lambda pr: pr.getUseAnalysisProfilePrice(), profiles)
-        billable_profile_services = functools.reduce(
-            lambda a, b: a+b,
-            map(lambda profile: profile.getServices(), billable_profiles),
-            []
-        )
+        # All services contained in the billable profiles
+        billable_profile_services = functools.reduce(lambda a, b: a+b, map(
+            lambda profile: profile.getServices(), billable_profiles), [])
+        # Keywords of the contained services
         billable_service_keys = map(
             lambda s: s.getKeyword(), set(billable_profile_services))
+        # Billable items contain billable profiles and single selected analyses
         billable_items = billable_profiles
+        # Get the analyses to be billed
         exclude_rs = ["retracted", "rejected"]
         for analysis in self.getAnalyses(is_active=True):
             if analysis.review_state in exclude_rs:
@@ -1664,18 +1825,27 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
 
     @security.protected(View)
     def getSubtotal(self):
+        """Compute Subtotal (without member discount and without vat)
+        """
         return sum([Decimal(obj.getPrice()) for obj in self.getBillableItems()])
 
     @security.protected(View)
     def getSubtotalVATAmount(self):
+        """Compute VAT amount without member discount
+        """
         return sum([Decimal(o.getVATAmount()) for o in self.getBillableItems()])
 
     @security.protected(View)
     def getSubtotalTotalPrice(self):
+        """Compute the price with VAT but no member discount
+        """
         return self.getSubtotal() + self.getSubtotalVATAmount()
 
     @security.protected(View)
     def getDiscountAmount(self):
+        """It computes and returns the analysis service's discount amount
+        without VAT
+        """
         has_client_discount = self.aq_parent.getMemberDiscountApplies()
         if has_client_discount:
             discount = Decimal(self.getDefaultMemberDiscount())
@@ -1685,6 +1855,11 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
 
     @security.protected(View)
     def getVATAmount(self):
+        """It computes the VAT amount from (subtotal-discount.)*VAT/100, but
+        each analysis has its own VAT!
+
+        :returns: the analysis request VAT amount with the discount
+        """
         has_client_discount = self.aq_parent.getMemberDiscountApplies()
         VATAmount = self.getSubtotalVATAmount()
         if has_client_discount:
@@ -1695,6 +1870,11 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
 
     @security.protected(View)
     def getTotalPrice(self):
+        """It gets the discounted price from analyses and profiles to obtain the
+        total value with the VAT and the discount applied
+
+        :returns: analysis request's total price including VATs and discounts
+        """
         price = (self.getSubtotal() - self.getDiscountAmount() +
                  self.getVATAmount())
         return price
@@ -1703,6 +1883,8 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
 
     @security.protected(ManageInvoices)
     def createInvoice(self, pdf):
+        """Issue invoice
+        """
         client = self.getClient()
         invoice = self.getInvoice()
         if not invoice:
@@ -1719,6 +1901,8 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
 
     @security.public
     def printInvoice(self, REQUEST=None, RESPONSE=None):
+        """Print invoice
+        """
         invoice = self.getInvoice()
         invoice_url = invoice.absolute_url()
         RESPONSE.redirect('{}/invoice_print'.format(invoice_url))
@@ -1726,13 +1910,20 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
     @deprecated("Use getVerifiers instead. Will be removed in SENAITE 3.0")
     @security.public
     def getVerifier(self):
+        """Returns the user that verified the whole Analysis Request. Since the
+        verification is done automatically as soon as all the analyses it
+        contains are verified, this function returns the user that verified the
+        last analysis pending.
+        """
         wtool = getToolByName(self, 'portal_workflow')
         mtool = getToolByName(self, 'portal_membership')
+
         verifier = None
         try:
             review_history = wtool.getInfoFor(self, 'review_history')
         except Exception:
             return 'access denied'
+
         if not review_history:
             return 'no history'
         for items in review_history:
@@ -1748,6 +1939,9 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
 
     @security.public
     def getVerifiersIDs(self):
+        """Returns the ids from users that have verified at least one analysis
+        from this Analysis Request
+        """
         verifiers_ids = list()
         for brain in self.getAnalyses():
             verifiers_ids += brain.getVerificators
@@ -1755,6 +1949,9 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
 
     @security.public
     def getVerifiers(self):
+        """Returns the list of lab contacts that have verified at least one
+        analysis from this Analysis Request
+        """
         contacts = list()
         for verifier in self.getVerifiersIDs():
             user = api.get_user(verifier)
@@ -1763,10 +1960,23 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
                 contacts.append(contact)
         return contacts
 
+    security.declarePublic('current_date')
+
+    def current_date(self):
+        """return current date
+        """
+        # noinspection PyCallingNonCallable
+        return DateTime()
+
     def getWorksheets(self, full_objects=False):
+        """Returns the worksheets that contains analyses from this Sample
+        """
+        # Get the Analyses UIDs of this Sample
         analyses_uids = map(api.get_uid, self.getAnalyses())
         if not analyses_uids:
             return []
+
+        # Get the worksheets that contain any of these analyses
         query = dict(getAnalysesUIDs=analyses_uids)
         worksheets = api.search(query, WORKSHEET_CATALOG)
         if full_objects:
@@ -1774,38 +1984,61 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
         return worksheets
 
     def getQCAnalyses(self, review_state=None):
+        """Returns the Quality Control analyses assigned to worksheets that
+        contains analyses from this Sample
+        """
+        # Get the worksheet uids
         worksheet_uids = map(api.get_uid, self.getWorksheets())
         if not worksheet_uids:
             return []
+
+        # Get reference qc analyses from these worksheets
         query = dict(portal_type="ReferenceAnalysis",
                      getWorksheetUID=worksheet_uids)
         qc_analyses = api.search(query, ANALYSIS_CATALOG)
+
+        # Extend with duplicate qc analyses from these worksheets and Sample
         query = dict(portal_type="DuplicateAnalysis",
                      getWorksheetUID=worksheet_uids,
                      getAncestorsUIDs=[api.get_uid(self)])
         qc_analyses += api.search(query, ANALYSIS_CATALOG)
+
+        # Bail out analyses with a different review_state
         if review_state:
             qc_analyses = filter(
                 lambda an: api.get_review_status(an) in review_state,
                 qc_analyses
             )
+
+        # Return the objects
         return map(api.get_object, qc_analyses)
 
     def isInvalid(self):
+        """return if the Analysis Request has been invalidated
+        """
         workflow = getToolByName(self, 'portal_workflow')
         return workflow.getInfoFor(self, 'review_state') == 'invalid'
 
     def getStorageLocationTitle(self):
+        """ A method for AR listing catalog metadata
+        :return: Title of Storage Location
+        """
         sl = self.getStorageLocation()
         if sl:
             return sl.Title()
         return ''
 
     def getDatePublished(self):
+        """
+        Returns the transition date from the Analysis Request object
+        """
         return getTransitionDate(self, 'publish', return_as_datetime=True)
 
     @security.public
     def getSamplingDeviationTitle(self):
+        """
+        It works as a metacolumn.
+        """
         sd = self.getSamplingDeviation()
         if sd:
             return sd.Title()
@@ -1813,6 +2046,8 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
 
     @security.public
     def getSampleConditionTitle(self):
+        """Helper method to access the title of the sample condition
+        """
         obj = self.getSampleCondition()
         if not obj:
             return ""
@@ -1820,6 +2055,9 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
 
     @security.public
     def getHazardous(self):
+        """
+        It works as a metacolumn.
+        """
         sample_type = self.getSampleType()
         if sample_type:
             return sample_type.getHazardous()
@@ -1827,6 +2065,9 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
 
     @security.public
     def getSamplingWorkflowEnabled(self):
+        """Returns True if the sample of this Analysis Request has to be
+        collected by the laboratory personnel
+        """
         template = self.getTemplate()
         if template:
             return template.getSamplingRequired()
@@ -1839,14 +2080,24 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
         return getUsers(self, ['Preserver', 'Sampler'])
 
     def getDepartments(self):
+        """Returns a list of the departments assigned to the Analyses
+        from this Analysis Request
+        """
         departments = list()
         for analysis in self.getAnalyses(full_objects=True):
             department = analysis.getDepartment()
-            if department and not department in departments:
+            if department and department not in departments:
                 departments.append(department)
         return departments
 
     def getResultsInterpretationByDepartment(self, department=None):
+        """Returns the results interpretation for this Analysis Request
+           and department. If department not set, returns the results
+           interpretation tagged as 'General'.
+
+        :returns: a dict with the following keys:
+            {'uid': <department_uid> or 'general', 'richtext': <text/plain>}
+        """
         uid = department.UID() if department else 'general'
         rows = self.Schema()['ResultsInterpretationDepts'].get(self)
         row = [row for row in rows if row.get('uid') == uid]
@@ -1861,13 +2112,27 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
         return row
 
     def getAnalysisServiceSettings(self, uid):
+        """Returns a dictionary with the settings for the analysis service that
+        match with the uid provided.
+
+        If there are no settings for the analysis service and
+        analysis requests:
+
+        1. looks for settings in AR's ARTemplate. If found, returns the
+           settings for the AnalysisService set in the Template
+        2. If no settings found, looks in AR's ARProfile. If found, returns the
+           settings for the AnalysisService from the AR Profile. Otherwise,
+           returns a one entry dictionary with only the key 'uid'
+        """
         sets = [s for s in self.getAnalysisServicesSettings()
                 if s.get("uid", "") == uid]
 
+        # Created by using an ARTemplate?
         if not sets and self.getTemplate():
             adv = self.getTemplate().getAnalysisServiceSettings(uid)
             sets = [adv] if "hidden" in adv else []
 
+        # Created by using an AR Profile?
         profiles = self.getProfiles()
         if not sets and profiles:
             adv = [profile.getAnalysisServiceSettings(uid) for profile in
@@ -1876,16 +2141,36 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
 
         return sets[0] if sets else {"uid": uid}
 
+    # TODO Sample Cleanup - Remove (Use getContainer instead)
     def getContainers(self):
+        """This functions returns the containers from the analysis request's
+        analyses
+
+        :returns: a list with the full partition objects
+        """
         return self.getContainer() and [self.getContainer] or []
 
     def isAnalysisServiceHidden(self, uid):
+        """Checks if the analysis service that match with the uid provided must
+        be hidden in results. If no hidden assignment has been set for the
+        analysis in this request, returns the visibility set to the analysis
+        itself.
+
+        Raise a TypeError if the uid is empty or None
+
+        Raise a ValueError if there is no hidden assignment in this request or
+        no analysis service found for this uid.
+        """
         if not api.is_uid(uid):
             raise TypeError("Expected a UID, got '%s'" % type(uid))
 
+        # get the local (analysis/template/profile) service settings
         settings = self.getAnalysisServiceSettings(uid)
 
+        # TODO: Rethink this logic and remove it afterwards!
+        # NOTE: profiles provide always the "hidden" key now!
         if not settings or "hidden" not in settings.keys():
+            # lookup the service
             serv = api.search({"UID": uid}, catalog="uid_catalog")
             if serv and len(serv) == 1:
                 return serv[0].getObject().getRawHidden()
@@ -1895,6 +2180,10 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
         return settings.get("hidden", False)
 
     def getRejecter(self):
+        """If the Analysis Request has been rejected, returns the user who did the
+        rejection. If it was not rejected or the current user has not enough
+        privileges to access to this information, returns None.
+        """
         wtool = getToolByName(self, 'portal_workflow')
         mtool = getToolByName(self, 'portal_membership')
         try:
@@ -1910,14 +2199,26 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
         return None
 
     def getReceivedBy(self):
+        """
+        Returns the User who received the analysis request.
+        :returns: the user id
+        """
         user = getTransitionUsers(self, 'receive', last_user=True)
         return user[0] if user else ''
 
     def getDateVerified(self):
+        """
+        Returns the date of verification as a DateTime object.
+        """
         return getTransitionDate(self, 'verify', return_as_datetime=True)
 
     @security.public
     def getPrioritySortkey(self):
+        """Returns the key that will be used to sort the current Analysis
+        Request based on both its priority and creation date. On ASC sorting,
+        the oldest item with highest priority will be displayed.
+        :return: string used for sorting
+        """
         priority = self.getPriority()
         created_date = self.created().ISO8601()
         return '%s.%s' % (priority, created_date)
@@ -1944,6 +2245,10 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
             catalog.reindexObject(analysis_obj, idxs=idxs, update_metadata=1)
 
     def getPriorityText(self):
+        """
+        This function looks up the priority text from priorities vocab
+        :returns: the priority text or ''
+        """
         if self.getPriority():
             return PRIORITIES.getValue(self.getPriority())
         return ''
@@ -1955,15 +2260,24 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
         return None
 
     def getRawRetest(self):
+        """Returns the UID of the Analysis Request that has been generated
+        automatically because of the retraction of the current Analysis Request
+        """
         relationship = self.getField("Invalidated").relationship
         uids = get_backreferences(self, relationship=relationship)
         return uids[0] if uids else None
 
     def getRetest(self):
+        """Returns the Analysis Request that has been generated automatically
+        because of the retraction of the current Analysis Request
+        """
         uid = self.getRawRetest()
         return api.get_object_by_uid(uid, default=None)
 
     def getAncestors(self, all_ancestors=True):
+        """Returns the ancestor(s) of this Analysis Request
+        param all_ancestors: include all ancestors, not only the parent
+        """
         parent = self.getParentAnalysisRequest()
         if not parent:
             return list()
@@ -1972,41 +2286,69 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
         return [parent] + parent.getAncestors(all_ancestors=True)
 
     def isRootAncestor(self):
+        """Returns True if the AR is the root ancestor
+
+        :returns: True if the AR has no more parents
+        """
         parent = self.getParentAnalysisRequest()
         if parent:
             return False
         return True
 
     def getDescendants(self, all_descendants=False):
+        """Returns the descendant Analysis Requests
+
+        :param all_descendants: recursively include all descendants
+        """
+
         uids = self.getDescendantsUIDs()
         if not uids:
             return []
+
+        # Extract the descendant objects
         descendants = []
         cat = api.get_tool(UID_CATALOG)
         for brain in cat(UID=uids):
             descendant = api.get_object(brain)
             descendants.append(descendant)
             if all_descendants:
+                # Extend with grandchildren
                 descendants += descendant.getDescendants(all_descendants=True)
+
         return descendants
 
     def getDescendantsUIDs(self):
+        """Returns the UIDs of the descendant Analysis Requests
+
+        This method is used as metadata
+        """
         relationship = self.getField("ParentAnalysisRequest").relationship
         return get_backreferences(self, relationship=relationship)
 
     def isPartition(self):
+        """Returns true if this Analysis Request is a partition
+        """
         return not self.isRootAncestor()
 
+    # TODO Remove in favour of getSamplingWorkflowEnabled
     def getSamplingRequired(self):
+        """Returns True if the sample of this Analysis Request has to be
+        collected by the laboratory personnel
+        """
         return self.getSamplingWorkflowEnabled()
 
     def isOpen(self):
+        """Returns whether all analyses from this Analysis Request haven't been
+        submitted yet (are in a open status)
+        """
         for analysis in self.getAnalyses():
             if ISubmitted.providedBy(api.get_object(analysis)):
                 return False
         return True
 
     def setParentAnalysisRequest(self, value):
+        """Sets a parent analysis request, making the current a partition
+        """
         parent = self.getParentAnalysisRequest()
         self.Schema().getField("ParentAnalysisRequest").set(self, value)
         if not value:
@@ -2019,46 +2361,74 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
             alsoProvides(parent, IAnalysisRequestWithPartitions)
 
     def getRawSecondaryAnalysisRequests(self):
+        """Returns the UIDs of the secondary Analysis Requests from this
+        Analysis Request
+        """
         relationship = self.getField("PrimaryAnalysisRequest").relationship
         return get_backreferences(self, relationship)
 
     def getSecondaryAnalysisRequests(self):
+        """Returns the secondary analysis requests from this analysis request
+        """
         uids = self.getRawSecondaryAnalysisRequests()
         uc = api.get_tool("uid_catalog")
         return [api.get_object(brain) for brain in uc(UID=uids)]
 
     def setDateReceived(self, value):
+        """Sets the date received to this analysis request and to secondary
+        analysis requests
+        """
         self.Schema().getField('DateReceived').set(self, value)
         for secondary in self.getSecondaryAnalysisRequests():
             secondary.setDateReceived(value)
             secondary.reindexObject(idxs=["getDateReceived", "is_received"])
 
     def setDateSampled(self, value):
+        """Sets the date sampled to this analysis request and to secondary
+        analysis requests
+        """
         self.Schema().getField('DateSampled').set(self, value)
         for secondary in self.getSecondaryAnalysisRequests():
             secondary.setDateSampled(value)
             secondary.reindexObject(idxs="getDateSampled")
 
     def setSamplingDate(self, value):
+        """Sets the sampling date to this analysis request and to secondary
+        analysis requests
+        """
         self.Schema().getField('SamplingDate').set(self, value)
         for secondary in self.getSecondaryAnalysisRequests():
             secondary.setSamplingDate(value)
             secondary.reindexObject(idxs="getSamplingDate")
 
     def getSelectedRejectionReasons(self):
+        """Returns a list with the selected rejection reasons, if any
+        """
         reasons = self.getRejectionReasons()
         if not reasons:
             return []
+
+        # Return a copy of the list to avoid accidental writes
         reasons = reasons[0].get("selected", [])[:]
         return filter(None, reasons)
 
     def getOtherRejectionReasons(self):
+        """Returns other rejection reasons custom text, if any
+        """
         reasons = self.getRejectionReasons()
         if not reasons:
             return ""
         return reasons[0].get("other", "").strip()
 
     def createAttachment(self, filedata, filename="", **kw):
+        """Add a new attachment to the sample
+
+        :param filedata: Raw filedata of the attachment (not base64)
+        :param filename: Filename + extension, e.g. `image.png`
+        :param kw: Additional keywords set to the attachment
+        :returns: New created and added attachment
+        """
+        # Add a new Attachment
         attachment = api.create(self.getClient(), "Attachment")
         attachment.setAttachmentFile(filedata)
         fileobj = attachment.getAttachmentFile()
@@ -2069,63 +2439,121 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
         return attachment
 
     def addAttachment(self, attachment):
+        """Adds an attachment or a list of attachments to the Analysis Request
+        """
         if not isinstance(attachment, (list, tuple)):
             attachment = [attachment]
+
         original = self.getAttachment() or []
+
+        # Function addAttachment can accept brain, objects or uids
         original = map(api.get_uid, original)
         attachment = map(api.get_uid, attachment)
+
+        # Boil out attachments already assigned to this Analysis Request
         attachment = filter(lambda at: at not in original, attachment)
         if attachment:
             original.extend(attachment)
             self.setAttachment(original)
 
     def setResultsInterpretationDepts(self, value):
+        """Custom setter which converts inline images to attachments
+
+        https://github.com/senaite/senaite.core/pull/1344
+
+        :param value: list of dictionary records
+        """
         if not isinstance(value, list):
             raise TypeError("Expected list, got {}".format(type(value)))
+
+        # Convert inline images -> attachment files
         records = []
         for record in value:
+            # N.B. we might here a ZPublisher record. Converting to dict
+            #      ensures we can set values as well.
             record = dict(record)
+            # Handle inline images in the HTML
             html = record.get("richtext", "")
+            # Process inline images to attachments
             record["richtext"] = self.process_inline_images(html)
+            # append the processed record for storage
             records.append(record)
+
+        # set the field
         self.getField("ResultsInterpretationDepts").set(self, records)
 
     def process_inline_images(self, html):
+        """Convert inline images in the HTML to attachments
+
+        https://github.com/senaite/senaite.core/pull/1344
+
+        :param html: The richtext HTML
+        :returns: HTML with converted images
+        """
+        # Check for inline images
         inline_images = re.findall(IMG_DATA_SRC_RX, html)
+
+        # convert to inline images -> attachments
         for data_type, data in inline_images:
+            # decode the base64 data to filedata
             filedata = base64.decodestring(data)
+            # extract the file extension from the data type
             extension = data_type.lstrip("data:image/").rstrip(";base64,")
+            # generate filename + extension
             filename = "attachment.{}".format(extension or "png")
+            # create a new attachment
             attachment = self.createAttachment(filedata, filename)
+            # ignore the attachment in report
             attachment.setRenderInReport(False)
+            # remove the image data base64 prefix
             html = html.replace(data_type, "")
+            # remove the base64 image data with the attachment link
             html = html.replace(data, "resolve_attachment?uid={}".format(
                 api.get_uid(attachment)))
             size = attachment.getAttachmentFile().get_size()
             logger.info("Converted {:.2f} Kb inline image for {}"
                         .format(size/1024, api.get_url(self)))
 
+        # convert relative URLs to absolute URLs
+        # N.B. This is actually a TinyMCE issue, but hardcoded in Plone:
+        #  https://www.tiny.cloud/docs/configure/url-handling/#relative_urls
         image_sources = re.findall(IMG_SRC_RX, html)
+
+        # add a trailing slash so that urljoin doesn't remove the last segment
         base_url = "{}/".format(api.get_url(self))
+
         for src in image_sources:
             if re.match("(http|https|data)", src):
                 continue
             obj = self.restrictedTraverse(src, None)
             if obj is None:
                 continue
+            # ensure we have an absolute URL
             html = html.replace(src, urljoin(base_url, src))
+
         return html
 
     def getProgress(self):
+        """Returns the progress in percent of all analyses
+        """
         review_state = api.get_review_status(self)
+
+        # Consider final states as 100%
+        # https://github.com/senaite/senaite.core/pull/1544#discussion_r379821841
         if review_state in FINAL_STATES:
             return 100
+
         numbers = self.getAnalysesNum()
+
         num_analyses = numbers[1] or 0
         if not num_analyses:
             return 0
+
+        # [verified, total, not_submitted, to_be_verified]
         num_to_be_verified = numbers[3] or 0
         num_verified = numbers[0] or 0
+
+        # 2 steps per analysis (submit, verify) plus one step for publish
         max_num_steps = (num_analyses * 2) + 1
         num_steps = num_to_be_verified + (num_verified * 2)
         if not num_steps:
@@ -2135,11 +2563,18 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
         return (num_steps * 100) / max_num_steps
 
     def getMaxDateSampled(self):
+        """Returns the maximum date for sample collection
+        """
         if not self.getSamplingWorkflowEnabled():
+            # no future, has to be collected before registration
             return api.get_creation_date(self)
         return datetime.max
 
     def get_profiles_query(self):
+        """Returns the query for the Profiles field, so only profiles without
+        any sample type set and those that support the sample's sample type are
+        considered
+        """
         sample_type_uid = self.getRawSampleType()
         query = {
             "portal_type": "AnalysisProfile",
@@ -2151,6 +2586,10 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
         return query
 
     def get_sample_points_query(self):
+        """Returns the query for the Sample Point field, so only active sample
+        points without any sample type set and those that support the sample's
+        sample type are returned
+        """
         sample_type_uid = self.getRawSampleType()
         query = {
             "portal_type": "SamplePoint",
@@ -2163,4 +2602,3 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
 
 
 registerType(AnalysisRequest, PROJECTNAME)
-
