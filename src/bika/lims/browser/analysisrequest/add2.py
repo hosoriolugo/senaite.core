@@ -906,13 +906,46 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
 
         return info
 
-    @cache(cache_key)
+    
+    def _compose_fullname(self, person):
+        """Return a full name using 4 fields when available.
+
+        Tries, in order:
+          - getFirstName / getMiddleName or getSecondName / getLastName / getSecondLastName
+          - falls back to getFullname()
+        Joins only non-empty parts with a single space.
+        """
+        parts = []
+        # try common field names used in customized Patient/Contact
+        for attr in ("getFirstName", "getMiddleName", "getSecondName", "getLastName", "getSecondLastName"):
+            if hasattr(person, attr):
+                try:
+                    val = getattr(person, attr)() or ""
+                except Exception:
+                    val = ""
+                if val:
+                    parts.append(val)
+        if parts:
+            return u" ".join(parts)
+        # fallback to default API
+        try:
+            return person.getFullname()
+        except Exception:
+            # last resort: title or id
+            try:
+                return api.safe_unicode(person.Title())
+            except Exception:
+                try:
+                    return api.get_id(person)
+                except Exception:
+                    return u"<no name>"
+@cache(cache_key)
     def get_contact_info(self, obj):
         """Returns the client info of an object
         """
 
         info = self.get_base_info(obj)
-        fullname = obj.getFullname()
+        fullname = self._compose_fullname(obj)
         email = obj.getEmailAddress()
 
         # Note: It might get a circular dependency when calling:
@@ -920,7 +953,7 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
         cccontacts = []
         for contact in obj.getCCContact():
             uid = api.get_uid(contact)
-            fullname = contact.getFullname()
+            fullname = self._compose_fullname(contact)
             email = contact.getEmailAddress()
             cccontacts.append({
                 "uid": uid,
@@ -1973,36 +2006,9 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
             # Pop the attachments
             attachments = record.pop("attachments", [])
 
-            
             # Create as many samples as required
             num_samples = self.get_num_samples(record)
             for idx in range(num_samples):
-                patient_obj = None
-
-                if "Contact" in record and record.get("Contact"):
-                    patient_obj = self.get_object_by_uid(record.get("Contact"))
-
-                if not patient_obj and hasattr(self.context, "getMRN"):
-                    patient_obj = self.context
-
-                if patient_obj:
-                    try:
-                        from bika.lims import api as _api
-                    except Exception:
-                        _api = api
-                    # --- PATCH guardar Paciente y MRN ---
-                    # Guarda el objeto Paciente directamente
-                    record["Patient"] = patient_obj
-
-                    # MRN (PatientID) si existe
-                    if hasattr(patient_obj, "getMRN"):
-                        record["PatientID"] = patient_obj.getMRN()
-
-                    # Nombre completo opcional
-                    if hasattr(patient_obj, "getFullname"):
-                        record["Fullname"] = patient_obj.getFullname()
-                    # --- END PATCH ---
-
                 sample = crar(client, self.request, record)
 
                 # Create the attachments
@@ -2061,7 +2067,8 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
         if submit_action == "save_and_copy":
             # redirect to the sample add form, but keep track of
             # previous created sample UIDs
-            redirect_to = "{}/ar_add?copy_from={}&ar_count={}&sample_uids={}"                 .format(self.context.absolute_url(),
+            redirect_to = "{}/ar_add?copy_from={}&ar_count={}&sample_uids={}" \
+                .format(self.context.absolute_url(),
                         ",".join(uids),  # copy_from
                         len(uids),  # ar_count
                         sample_uids)  # sample_uids
@@ -2100,4 +2107,5 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
             return dict(new_pairs)
 
         return json.loads(body, object_hook=encode_hook)
+
 
