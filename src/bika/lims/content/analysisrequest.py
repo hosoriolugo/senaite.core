@@ -177,6 +177,46 @@ schema = BikaSchema.copy() + Schema((
         ),
     ),
 
+    StringField(
+        'MedicalRecordNumber',
+        mode="rw",
+        read_permission=View,
+        write_permission=ModifyPortalContent,
+        widget=StringWidget(
+            label=_("Medical Record Number (MRN)"),
+            description=_("The patient medical record number"),
+            size=20,
+            render_own_label=True,
+            visible={
+                'add': 'edit',
+                'edit': 'edit',
+                'view': 'visible',
+                'header_table': 'prominent',
+            },
+        ),
+    ),
+
+    StringField(
+        'PatientFullName',
+        mode="rw",
+        read_permission=View,
+        write_permission=ModifyPortalContent,
+        widget=StringWidget(
+            label=_("Patient Full Name"),
+            description=_("The full name of the patient"),
+            size=40,
+            render_own_label=True,
+            visible={
+                'add': 'edit',
+                'edit': 'edit',
+                'view': 'visible',
+                'header_table': 'prominent',
+            },
+        ),
+    ),
+
+
+
     UIDReferenceField(
         "CCContact",
         multiValued=1,
@@ -1961,6 +2001,16 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
         return contacts
 
     security.declarePublic('current_date')
+
+    @security.public
+    def getMedicalRecordNumberValue(self):
+        """Return the MRN stored in the AR"""
+        return self.Schema().getField("MedicalRecordNumber").get(self) or ""
+
+    @security.public
+    def getPatientFullName(self):
+        """Return the Patient Full Name stored in the AR"""
+        return self.Schema().getField("PatientFullName").get(self) or ""
 
     def current_date(self):
         """return current date
