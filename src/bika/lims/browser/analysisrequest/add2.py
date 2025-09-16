@@ -556,6 +556,51 @@ class AnalysisRequestAddView(BrowserView):
         return api.get_title(cat)
 
     @cache(cache_key)
+    def _compose_fullname(self, person):
+        """Return a full name using existing person accessors.
+        Keeps existing field names intact and *adds* support for Maternal Lastname.
+        """
+        parts = []
+        def safe_get(attr):
+            if hasattr(person, attr):
+                try:
+                    return getattr(person, attr)() or ""
+                except Exception:
+                    return ""
+            return ""
+        # Order: First, Middle/Second, Last (paternal), Maternal
+        for nm in ("getFirstName",):
+            val = safe_get(nm); 
+            if val: parts.append(val)
+        for nm in ("getMiddleName","getSecondName"):
+            val = safe_get(nm); 
+            if val: parts.append(val)
+        for nm in ("getLastName",):
+            val = safe_get(nm); 
+            if val: parts.append(val)
+        for nm in ("getSecondLastName","getSecondLastname"):
+            val = safe_get(nm); 
+            if val: parts.append(val)
+        for nm in ("getMaternalLastname","getMaternalLastName"):
+            val = safe_get(nm); 
+            if val: parts.append(val)
+        if parts:
+            return u" ".join(parts)
+        for fallback in ("getFullname",):
+            if hasattr(person, fallback):
+                try:
+                    return getattr(person, fallback)()
+                except Exception:
+                    pass
+        try:
+            return api.safe_unicode(person.Title())
+        except Exception:
+            try:
+                return api.get_id(person)
+            except Exception:
+                return u"<no name>"
+
+    @cache(cache_key)
     def get_service_uid_from(self, analysis):
         """Return the service from the analysis
         """
@@ -907,32 +952,6 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
         return info
 
     @cache(cache_key)
-    
-    def _compose_fullname(self, person):
-        """Return a full name using 4 fields when available."""
-        parts = []
-        for attr in ("getFirstName", "getMiddleName", "getSecondName",
-                     "getLastName", "getSecondLastName"):
-            if hasattr(person, attr):
-                try:
-                    val = getattr(person, attr)() or ""
-                except Exception:
-                    val = ""
-                if val:
-                    parts.append(val)
-        if parts:
-            return u" ".join(parts)
-        try:
-            return person.getFullname()
-        except Exception:
-            try:
-                return api.safe_unicode(person.Title())
-            except Exception:
-                try:
-                    return api.get_id(person)
-                except Exception:
-                    return u"<no name>"
-    
     def get_contact_info(self, obj):
         """Returns the client info of an object
         """
@@ -963,6 +982,38 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
             },
         })
 
+        return info
+
+    @cache(cache_key)
+    def get_patient_info(self, obj):
+        """Returns the patient info without altering existing field names.
+        Uses _compose_fullname and includes MRN when available.
+        """
+        info = self.get_base_info(obj)
+        fullname = self._compose_fullname(obj)
+        mrn = ""
+        for attr in ("getMedicalRecordNumber","getMRN","getMrn"):
+            if hasattr(obj, attr):
+                try:
+                    mrn = getattr(obj, attr)() or ""
+                except Exception:
+                    mrn = ""
+                if mrn:
+                    break
+        # temporary patient flag/icon hint
+        is_temp = False
+        for attr in ("isTemporary","getIsTemporary","is_temp"):
+            if hasattr(obj, attr):
+                try:
+                    is_temp = bool(getattr(obj, attr)())
+                except Exception:
+                    pass
+                break
+        info.update({
+            "fullname": fullname,
+            "mrn": mrn,
+            "temporary": is_temp,
+        })
         return info
 
     @cache(cache_key)
@@ -1083,7 +1134,7 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
         container = obj.getContainer()
         deviation = obj.getSamplingDeviation()
         cccontacts = obj.getCCContact() or []
-        contact = obj.getPatient()
+        contact = obj.getContact()
 
         info.update({
             "composite": obj.getComposite(),
@@ -1096,6 +1147,8 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
             "Contact": self.to_field_value(contact),
             "CCContact": map(self.to_field_value, cccontacts),
             "CCEmails": obj.getCCEmails(),
+            "Patient": self.to_field_value(patient),
+            "Contact": self.to_field_value(contact),
             "Batch": self.to_field_value(batch),
             "DateSampled": {"value": self.to_iso_date(obj.getDateSampled())},
             "SamplingDate": {"value": self.to_iso_date(obj.getSamplingDate())},
