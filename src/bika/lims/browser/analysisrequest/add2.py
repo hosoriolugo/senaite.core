@@ -906,46 +906,13 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
 
         return info
 
-    
-    def _compose_fullname(self, person):
-        """Return a full name using 4 fields when available.
-
-        Tries, in order:
-          - getFirstName / getMiddleName or getSecondName / getLastName / getSecondLastName
-          - falls back to getFullname()
-        Joins only non-empty parts with a single space.
-        """
-        parts = []
-        # try common field names used in customized Patient/Contact
-        for attr in ("getFirstName", "getMiddleName", "getSecondName", "getLastName", "getSecondLastName"):
-            if hasattr(person, attr):
-                try:
-                    val = getattr(person, attr)() or ""
-                except Exception:
-                    val = ""
-                if val:
-                    parts.append(val)
-        if parts:
-            return u" ".join(parts)
-        # fallback to default API
-        try:
-            return person.getFullname()
-        except Exception:
-            # last resort: title or id
-            try:
-                return api.safe_unicode(person.Title())
-            except Exception:
-                try:
-                    return api.get_id(person)
-                except Exception:
-                    return u"<no name>"
-@cache(cache_key)
+    @cache(cache_key)
     def get_contact_info(self, obj):
         """Returns the client info of an object
         """
 
         info = self.get_base_info(obj)
-        fullname = self._compose_fullname(obj)
+        fullname = obj.getFullname()
         email = obj.getEmailAddress()
 
         # Note: It might get a circular dependency when calling:
@@ -953,7 +920,7 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
         cccontacts = []
         for contact in obj.getCCContact():
             uid = api.get_uid(contact)
-            fullname = self._compose_fullname(contact)
+            fullname = contact.getFullname()
             email = contact.getEmailAddress()
             cccontacts.append({
                 "uid": uid,
@@ -2107,5 +2074,3 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
             return dict(new_pairs)
 
         return json.loads(body, object_hook=encode_hook)
-
-
