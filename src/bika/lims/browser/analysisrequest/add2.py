@@ -1990,9 +1990,18 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
                         from bika.lims import api as _api
                     except Exception:
                         _api = api
-                    record["Patient"] = _api.get_uid(patient_obj)
+                    # --- PATCH guardar Paciente y MRN ---
+                    # Guarda el objeto Paciente directamente
+                    record["Patient"] = patient_obj
+
+                    # MRN (PatientID) si existe
+                    if hasattr(patient_obj, "getMRN"):
+                        record["PatientID"] = patient_obj.getMRN()
+
+                    # Nombre completo opcional
                     if hasattr(patient_obj, "getFullname"):
                         record["Fullname"] = patient_obj.getFullname()
+                    # --- END PATCH ---
 
                 sample = crar(client, self.request, record)
 
@@ -2052,8 +2061,7 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
         if submit_action == "save_and_copy":
             # redirect to the sample add form, but keep track of
             # previous created sample UIDs
-            redirect_to = "{}/ar_add?copy_from={}&ar_count={}&sample_uids={}" \
-                .format(self.context.absolute_url(),
+            redirect_to = "{}/ar_add?copy_from={}&ar_count={}&sample_uids={}"                 .format(self.context.absolute_url(),
                         ",".join(uids),  # copy_from
                         len(uids),  # ar_count
                         sample_uids)  # sample_uids
@@ -2092,3 +2100,4 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
             return dict(new_pairs)
 
         return json.loads(body, object_hook=encode_hook)
+
