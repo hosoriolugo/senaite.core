@@ -1894,7 +1894,30 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
                     fielderrors[field_name] = error
 
             # add the attachments to the record
-            valid_record["attachments"] = filter(None, attachments)
+            
+# --- 🔁 Asegurar que todos los campos estén en valid_record ---
+# Si el bucle anterior no almacenó todos los valores procesados,
+# los (re)procesamos aquí para garantizar que crar() reciba datos completos.
+try:
+    for field in fields:
+        field_name = field.getName()
+        if field_name in valid_record:
+            continue
+        field_value = record.get(field_name)
+        if field_value in ['', None]:
+            continue
+        value, msgs = field.widget.process_form(tmp_sample, field, record)
+        if not value:
+            continue
+        valid_record[field_name] = value
+        error = field.validate(value, tmp_sample)
+        if error:
+            field_name_key = "{}-{}".format(field_name, num)
+            fielderrors[field_name_key] = error
+except Exception as _e:
+    logger.warn("Post-procesado de campos falló: %s", _e)
+
+valid_record["attachments"] = filter(None, attachments)
 
             # append the valid record to the list of valid records
             valid_records.append(valid_record)
