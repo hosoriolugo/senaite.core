@@ -556,51 +556,6 @@ class AnalysisRequestAddView(BrowserView):
         return api.get_title(cat)
 
     @cache(cache_key)
-    def _compose_fullname(self, person):
-        """Return a full name using existing person accessors.
-        Keeps existing field names intact and *adds* support for Maternal Lastname.
-        """
-        parts = []
-        def safe_get(attr):
-            if hasattr(person, attr):
-                try:
-                    return getattr(person, attr)() or ""
-                except Exception:
-                    return ""
-            return ""
-        # Order: First, Middle/Second, Last (paternal), Maternal
-        for nm in ("getFirstName",):
-            val = safe_get(nm); 
-            if val: parts.append(val)
-        for nm in ("getMiddleName","getSecondName"):
-            val = safe_get(nm); 
-            if val: parts.append(val)
-        for nm in ("getLastName",):
-            val = safe_get(nm); 
-            if val: parts.append(val)
-        for nm in ("getSecondLastName","getSecondLastname"):
-            val = safe_get(nm); 
-            if val: parts.append(val)
-        for nm in ("getMaternalLastname","getMaternalLastName"):
-            val = safe_get(nm); 
-            if val: parts.append(val)
-        if parts:
-            return u" ".join(parts)
-        for fallback in ("getFullname",):
-            if hasattr(person, fallback):
-                try:
-                    return getattr(person, fallback)()
-                except Exception:
-                    pass
-        try:
-            return api.safe_unicode(person.Title())
-        except Exception:
-            try:
-                return api.get_id(person)
-            except Exception:
-                return u"<no name>"
-
-    @cache(cache_key)
     def get_service_uid_from(self, analysis):
         """Return the service from the analysis
         """
@@ -986,33 +941,41 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
 
     @cache(cache_key)
     def get_patient_info(self, obj):
-        """Returns the patient info without altering existing field names.
-        Uses _compose_fullname and includes MRN when available.
-        """
+        """Returns patient info with fullname, MRN and temporary flag"""
         info = self.get_base_info(obj)
-        fullname = self._compose_fullname(obj)
+        # Fullname using robust composer
+        try:
+            fullname = self._compose_fullname(obj)
+        except Exception:
+            try:
+                fullname = obj.getFullname()
+            except Exception:
+                fullname = info.get("title", "")
+        # Medical Record Number (MRN)
         mrn = ""
-        for attr in ("getMedicalRecordNumber","getMRN","getMrn"):
-            if hasattr(obj, attr):
-                try:
-                    mrn = getattr(obj, attr)() or ""
-                except Exception:
-                    mrn = ""
-                if mrn:
+        for attr in ("getMedicalRecordNumber", "MedicalRecordNumber", "getMRN"):
+            try:
+                if hasattr(obj, attr):
+                    val = getattr(obj, attr)
+                    mrn = val() if callable(val) else (val or "")
+                    if mrn:
+                        break
+            except Exception:
+                pass
+        # Temporary patient flag (best-effort)
+        is_temporary = False
+        for attr in ("getIsTemporary", "isTemporary", "getTemporary", "Temporary", "getIsTemp"):
+            try:
+                if hasattr(obj, attr):
+                    val = getattr(obj, attr)
+                    is_temporary = bool(val() if callable(val) else val)
                     break
-        # temporary patient flag/icon hint
-        is_temp = False
-        for attr in ("isTemporary","getIsTemporary","is_temp"):
-            if hasattr(obj, attr):
-                try:
-                    is_temp = bool(getattr(obj, attr)())
-                except Exception:
-                    pass
-                break
+            except Exception:
+                pass
         info.update({
             "fullname": fullname,
             "mrn": mrn,
-            "temporary": is_temp,
+            "is_temporary": is_temporary,
         })
         return info
 
@@ -1145,10 +1108,9 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
         info["field_values"].update({
             "Client": self.to_field_value(client),
             "Contact": self.to_field_value(contact),
+            "Patient": self.to_field_value(patient),
             "CCContact": map(self.to_field_value, cccontacts),
             "CCEmails": obj.getCCEmails(),
-            "Patient": self.to_field_value(patient),
-            "Contact": self.to_field_value(contact),
             "Batch": self.to_field_value(batch),
             "DateSampled": {"value": self.to_iso_date(obj.getDateSampled())},
             "SamplingDate": {"value": self.to_iso_date(obj.getSamplingDate())},
@@ -1164,7 +1126,8 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
             "StorageLocation": self.to_field_value(storage_location),
             "Container": self.to_field_value(container),
             "SamplingDeviation": self.to_field_value(deviation),
-            "Composite": {"value": obj.getComposite()}
+            "Composite": {"value": obj.getComposite()},
+            "MedicalRecordNumber": {"value": (patient and getattr(patient, "getMedicalRecordNumber", lambda: "")() or "")}
         })
 
         return info
@@ -1989,6 +1952,20 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
                     fielderrors[field_name] = error
 
             # add the attachments to the record
+            # If Patient present and MRN missing, auto-fill MRN from the patient
+            if "Patient" in valid_record and not valid_record.get("MedicalRecordNumber"):
+                try:
+                    pat_obj = self.get_object_by_uid(valid_record.get("Patient"))
+                except Exception:
+                    pat_obj = None
+                if pat_obj is not None:
+                    try:
+                        mrn_val = getattr(pat_obj, "getMedicalRecordNumber", lambda: "")() or ""
+                        if mrn_val:
+                            valid_record["MedicalRecordNumber"] = mrn_val
+                    except Exception:
+                        pass
+
             valid_record["attachments"] = filter(None, attachments)
 
             # append the valid record to the list of valid records
@@ -2056,6 +2033,22 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
             num_samples = self.get_num_samples(record)
             for idx in range(num_samples):
                 sample = crar(client, self.request, record)
+
+                # Persist MRN on sample if field exists
+                try:
+                    mrn_val = record.get("MedicalRecordNumber", "")
+                    if (not mrn_val) and record.get("Patient"):
+                        pat_obj = self.get_object_by_uid(record.get("Patient"))
+                        if pat_obj is not None:
+                            mrn_val = getattr(pat_obj, "getMedicalRecordNumber", lambda: "")() or ""
+                    if mrn_val:
+                        for setter in ("setMedicalRecordNumber", "setMRN"):
+                            if hasattr(sample, setter):
+                                getattr(sample, setter)(mrn_val)
+                                break
+                except Exception:
+                    pass
+
 
                 # Create the attachments
                 for attachment_record in attachments:
