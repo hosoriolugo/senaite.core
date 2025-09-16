@@ -2001,22 +2001,16 @@ class AnalysisRequest(BaseFolder, ClientAwareMixin):
         return contacts
 
     security.declarePublic('current_date')
-
+   
     @security.public
     def getMedicalRecordNumberValue(self):
         """Return the MRN stored in the AR"""
-        return self.Schema().getField("MedicalRecordNumber").get(self) or ""
+        return getattr(self, "MedicalRecordNumber", "") or ""
 
     @security.public
     def getPatientFullName(self):
         """Return the Patient Full Name stored in the AR"""
-        return self.Schema().getField("PatientFullName").get(self) or ""
-
-    def current_date(self):
-        """return current date
-        """
-        # noinspection PyCallingNonCallable
-        return DateTime()
+        return getattr(self, "PatientFullName", "") or ""
 
     def getWorksheets(self, full_objects=False):
         """Returns the worksheets that contains analyses from this Sample
