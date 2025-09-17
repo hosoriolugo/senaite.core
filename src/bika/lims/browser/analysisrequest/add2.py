@@ -1868,22 +1868,29 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
                 if not value:
                     continue
 
-            # --- 🔧 Copiar MRN y Fullname desde Patient al AR ---
-            patient_uid = record.get("Patient")
-            if patient_uid:
-                patient = self.get_object_by_uid(patient_uid)
-                if patient:
-                    mrn = getattr(patient, "getMRN", lambda: "")()
-                    fullname = getattr(patient, "getFullname", lambda: "")()
-                    record["MedicalRecordNumber"] = mrn
-                    record["PatientFullName"] = fullname
-                    logger.info(
-                        "Copiado MRN={} y FullName='{}' al record del AR".format(
-                            mrn, fullname
-                        )
-                    )
-
-
+            
+                # --- MRN/Patient autopopulate & diagnostics ---
+                patient_uid = record.get("Patient")
+                if not patient_uid:
+                    logger.warn("[ARAdd][MRN] Falta Patient en el formulario: no se copiarán MRN ni PatientFullName")
+                else:
+                    patient = self.get_object_by_uid(patient_uid)
+                    if not patient:
+                        logger.warn("[ARAdd][MRN] El UID de Patient='{}' no resolvió a un objeto válido".format(patient_uid))
+                    else:
+                        mrn = getattr(patient, "getMRN", lambda: "")() or ""
+                        fullname = getattr(patient, "getFullname", lambda: "")() or ""
+                        # Copiamos a los campos del record (no bloquea si están vacíos)
+                        record["MedicalRecordNumber"] = mrn
+                        record["PatientFullName"] = fullname
+                        if mrn and fullname:
+                            logger.info("[ARAdd][MRN] Copiados MRN='{}' y PatientFullName='{}' desde Patient UID={}".format(mrn, fullname, patient_uid))
+                        elif mrn and not fullname:
+                            logger.warn("[ARAdd][MRN] MRN='{}' copiado, pero PatientFullName vacío para Patient UID={}".format(mrn, patient_uid))
+                        elif fullname and not mrn:
+                            logger.warn("[ARAdd][MRN] PatientFullName='{}' copiado, pero MRN vacío para Patient UID={}".format(fullname, patient_uid))
+                        else:
+                            logger.warn("[ARAdd][MRN] Patient encontrado (UID={}), pero MRN y PatientFullName están vacíos".format(patient_uid))
                 # store the processed value as the valid record
                 valid_record[field_name] = value
 
@@ -1893,38 +1900,7 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
                     field_name = "{}-{}".format(field_name, num)
                     fielderrors[field_name] = error
 
-    
-        # --- Copy MRN and Patient Full Name from Patient into the AR record ---
-        try:
-            patient_uid = None
-            # Prefer processed value stored in valid_record (post-widget)
-            pv = valid_record.get("Patient")
-            if isinstance(pv, basestring) and pv:
-                patient_uid = pv
-            elif isinstance(pv, (list, tuple)) and pv:
-                patient_uid = pv[0]
-            # Fallback to raw record
-            if not patient_uid:
-                rv = record.get("Patient")
-                if isinstance(rv, basestring) and rv:
-                    patient_uid = rv
-                elif isinstance(rv, (list, tuple)) and rv:
-                    patient_uid = rv[0]
-
-            if patient_uid:
-                patient = self.get_object_by_uid(patient_uid)
-                if patient:
-                    mrn = getattr(patient, "getMRN", lambda: "")() or getattr(patient, "mrn", "") or ""
-                    fullname = getattr(patient, "getFullname", lambda: "")() or getattr(patient, "Title", lambda: "")() or ""
-                    # Store in both structures to support downstream flows (AJAX + create_samples)
-                    record["MedicalRecordNumber"] = mrn
-                    record["PatientFullName"] = fullname
-                    valid_record["MedicalRecordNumber"] = mrn
-                    valid_record["PatientFullName"] = fullname
-                    logger.info("[AR Add] Mapped Patient -> MRN='%s' FullName='%s'" % (mrn, fullname))
-        except Exception as _e:
-            logger.warn("[AR Add] Could not map Patient MRN/FullName: %s" % _e)
-        # add the attachments to the record
+            # add the attachments to the record
             valid_record["attachments"] = filter(None, attachments)
 
             # append the valid record to the list of valid records
