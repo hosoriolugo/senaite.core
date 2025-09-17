@@ -18,6 +18,77 @@
 # Copyright 2018-2025 by it's authors.
 # Some rights reserved, see README and LICENSE.
 
+import json
+import logging
+from collections import OrderedDict
+from datetime import datetime
+from datetime import timedelta
+
+import six
+import transaction
+from bika.lims import POINTS_OF_CAPTURE
+from bika.lims import api
+from bika.lims import bikaMessageFactory as _
+from bika.lims import logger
+from bika.lims.api.analysisservice import get_calculation_dependencies_for
+from bika.lims.api.security import check_permission
+from bika.lims.decorators import returns_json
+from bika.lims.interfaces import IAddSampleConfirmation
+from bika.lims.interfaces import IAddSampleFieldsFlush
+from bika.lims.interfaces import IAddSampleObjectInfo
+from bika.lims.interfaces import IAddSampleRecordsValidator
+from bika.lims.interfaces import IGetDefaultFieldValueARAddHook
+from bika.lims.interfaces.field import IUIDReferenceField
+from bika.lims.utils.analysisrequest import create_analysisrequest as crar
+from BTrees.OOBTree import OOBTree
+from DateTime import DateTime
+from plone import protect
+from plone.memoize import view as viewcache
+from plone.memoize.volatile import DontCache
+from plone.memoize.volatile import cache
+from plone.protect.interfaces import IDisableCSRFProtection
+from Products.Archetypes.interfaces import IField
+from Products.CMFPlone.utils import safe_unicode
+from Products.Five.browser import BrowserView
+from Products.Five.browser.pagetemplatefile import ViewPageTemplateFile
+from senaite.core.api import dtime
+from senaite.core.catalog import CONTACT_CATALOG
+from senaite.core.catalog import SETUP_CATALOG
+from senaite.core.p3compat import cmp
+from senaite.core.permissions import TransitionMultiResults
+from senaite.core.registry import get_registry_record
+from zope.annotation.interfaces import IAnnotations
+from zope.component import getAdapters
+from zope.component import queryAdapter
+from zope.i18n.locales import locales
+from zope.i18nmessageid import Message
+from zope.interface import alsoProvides
+from zope.interface import implements
+from zope.publisher.interfaces import IPublishTraverse
+
+AR_CONFIGURATION_STORAGE = "bika.lims.browser.analysisrequest.manage.add"
+SKIP_FIELD_ON_COPY = ["Sample", "PrimaryAnalysisRequest", "Remarks",
+                      "NumSamples", "_ARAttachment"]
+NO_COPY_FIELDS = ["_ARAttachment"]
+ALLOW_MULTI_PASTE_WIDGET_TYPES = [
+    # disable paste functionality for date fields, see:
+    # https://github.com/senaite/senaite.core/pull/2658#discussion_r1946229751
+    # "senaite.core.browser.widgets.datetimewidget.DateTimeWidget",
+    "senaite.core.browser.widgets.referencewidget.ReferenceWidget",
+    "Products.Archetypes.Widget.StringWidget",
+    "Products.Archetypes.Widget.BooleanWidget",
+    "bika.lims.browser.widgets.priorityselectionwidget.PrioritySelectionWidget",  # noqa
+    "bika.lims.browser.widgets.remarkswidget.RemarksWidget",
+    "bika.lims.browser.widgets.selectionwidget.SelectionWidget",
+]
+
+
+def cache_key(method, self, obj):
+    if obj is None:
+        raise DontCache
+    return api.get_cache_key(obj)
+
+
 # --- MRN/Paciente helpers (surgical patch) ---
 try:
     basestring
@@ -92,74 +163,7 @@ def _coerce_record_mrn_patient(record, logger=None):
     if fullname:
         record['PatientFullName'] = fullname
     return record
-  import json
-from collections import OrderedDict
-from datetime import datetime
-from datetime import timedelta
-
-import six
-import transaction
-from bika.lims import POINTS_OF_CAPTURE
-from bika.lims import api
-from bika.lims import bikaMessageFactory as _
-from bika.lims import logger
-from bika.lims.api.analysisservice import get_calculation_dependencies_for
-from bika.lims.api.security import check_permission
-from bika.lims.decorators import returns_json
-from bika.lims.interfaces import IAddSampleConfirmation
-from bika.lims.interfaces import IAddSampleFieldsFlush
-from bika.lims.interfaces import IAddSampleObjectInfo
-from bika.lims.interfaces import IAddSampleRecordsValidator
-from bika.lims.interfaces import IGetDefaultFieldValueARAddHook
-from bika.lims.interfaces.field import IUIDReferenceField
-from bika.lims.utils.analysisrequest import create_analysisrequest as crar
-from BTrees.OOBTree import OOBTree
-from DateTime import DateTime
-from plone import protect
-from plone.memoize import view as viewcache
-from plone.memoize.volatile import DontCache
-from plone.memoize.volatile import cache
-from plone.protect.interfaces import IDisableCSRFProtection
-from Products.Archetypes.interfaces import IField
-from Products.CMFPlone.utils import safe_unicode
-from Products.Five.browser import BrowserView
-from Products.Five.browser.pagetemplatefile import ViewPageTemplateFile
-from senaite.core.api import dtime
-from senaite.core.catalog import CONTACT_CATALOG
-from senaite.core.catalog import SETUP_CATALOG
-from senaite.core.p3compat import cmp
-from senaite.core.permissions import TransitionMultiResults
-from senaite.core.registry import get_registry_record
-from zope.annotation.interfaces import IAnnotations
-from zope.component import getAdapters
-from zope.component import queryAdapter
-from zope.i18n.locales import locales
-from zope.i18nmessageid import Message
-from zope.interface import alsoProvides
-from zope.interface import implements
-from zope.publisher.interfaces import IPublishTraverse
-
-AR_CONFIGURATION_STORAGE = "bika.lims.browser.analysisrequest.manage.add"
-SKIP_FIELD_ON_COPY = ["Sample", "PrimaryAnalysisRequest", "Remarks",
-                      "NumSamples", "_ARAttachment"]
-NO_COPY_FIELDS = ["_ARAttachment"]
-ALLOW_MULTI_PASTE_WIDGET_TYPES = [
-    # disable paste functionality for date fields, see:
-    # https://github.com/senaite/senaite.core/pull/2658#discussion_r1946229751
-    # "senaite.core.browser.widgets.datetimewidget.DateTimeWidget",
-    "senaite.core.browser.widgets.referencewidget.ReferenceWidget",
-    "Products.Archetypes.Widget.StringWidget",
-    "Products.Archetypes.Widget.BooleanWidget",
-    "bika.lims.browser.widgets.priorityselectionwidget.PrioritySelectionWidget",  # noqa
-    "bika.lims.browser.widgets.remarkswidget.RemarksWidget",
-    "bika.lims.browser.widgets.selectionwidget.SelectionWidget",
-]
-
-
-def cache_key(method, self, obj):
-    if obj is None:
-        raise DontCache
-    return api.get_cache_key(obj)
+# --- end helpers ---
 
 
 class AnalysisRequestAddView(BrowserView):
@@ -1356,7 +1360,7 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
         services = {}
         query = {
             "portal_type": "AnalysisService",
-            "point_of_capture": "lab",
+            "point_of capture": "lab",
             "is_active": True,
         }
         brains = api.search(query, SETUP_CATALOG)
@@ -1941,22 +1945,6 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
                 value, msgs = process_value(tmp_sample, field, record)
                 if not value:
                     continue
-
-            # --- 🔧 Copiar MRN y Fullname desde Patient al AR ---
-            patient_uid = record.get("Patient")
-            if patient_uid:
-                patient = self.get_object_by_uid(patient_uid)
-                if patient:
-                    mrn = getattr(patient, "getMRN", lambda: "")()
-                    fullname = getattr(patient, "getFullname", lambda: "")()
-                    record["MedicalRecordNumber"] = mrn
-                    record["PatientFullName"] = fullname
-                    logger.info(
-                        "Copiado MRN={} y FullName='{}' al record del AR".format(
-                            mrn, fullname
-                        )
-                    )
-
 
                 # store the processed value as the valid record
                 valid_record[field_name] = value
