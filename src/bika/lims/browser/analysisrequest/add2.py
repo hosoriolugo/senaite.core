@@ -1868,29 +1868,22 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
                 if not value:
                     continue
 
-            
-                # --- MRN/Patient autopopulate & diagnostics ---
-                patient_uid = record.get("Patient")
-                if not patient_uid:
-                    logger.warn("[ARAdd][MRN] Falta Patient en el formulario: no se copiarán MRN ni PatientFullName")
-                else:
-                    patient = self.get_object_by_uid(patient_uid)
-                    if not patient:
-                        logger.warn("[ARAdd][MRN] El UID de Patient='{}' no resolvió a un objeto válido".format(patient_uid))
-                    else:
-                        mrn = getattr(patient, "getMRN", lambda: "")() or ""
-                        fullname = getattr(patient, "getFullname", lambda: "")() or ""
-                        # Copiamos a los campos del record (no bloquea si están vacíos)
-                        record["MedicalRecordNumber"] = mrn
-                        record["PatientFullName"] = fullname
-                        if mrn and fullname:
-                            logger.info("[ARAdd][MRN] Copiados MRN='{}' y PatientFullName='{}' desde Patient UID={}".format(mrn, fullname, patient_uid))
-                        elif mrn and not fullname:
-                            logger.warn("[ARAdd][MRN] MRN='{}' copiado, pero PatientFullName vacío para Patient UID={}".format(mrn, patient_uid))
-                        elif fullname and not mrn:
-                            logger.warn("[ARAdd][MRN] PatientFullName='{}' copiado, pero MRN vacío para Patient UID={}".format(fullname, patient_uid))
-                        else:
-                            logger.warn("[ARAdd][MRN] Patient encontrado (UID={}), pero MRN y PatientFullName están vacíos".format(patient_uid))
+            # --- 🔧 Copiar MRN y Fullname desde Patient al AR ---
+            patient_uid = record.get("Patient")
+            if patient_uid:
+                patient = self.get_object_by_uid(patient_uid)
+                if patient:
+                    mrn = getattr(patient, "getMRN", lambda: "")()
+                    fullname = getattr(patient, "getFullname", lambda: "")()
+                    record["MedicalRecordNumber"] = mrn
+                    record["PatientFullName"] = fullname
+                    logger.info(
+                        "Copiado MRN={} y FullName='{}' al record del AR".format(
+                            mrn, fullname
+                        )
+                    )
+
+
                 # store the processed value as the valid record
                 valid_record[field_name] = value
 
