@@ -367,7 +367,7 @@ class AnalysisRequestAddView(BrowserView):
             pparent = parent.getParentAnalysisRequest()
             if pparent is None:
                 break
-        # remember the new parent
+            # remember the new parent
             parent = pparent
 
         return parent
@@ -395,14 +395,14 @@ class AnalysisRequestAddView(BrowserView):
                 value = None
                 fieldname = field.getName()
                 if source and fieldname not in SKIP_FIELD_ON_COPY:
-        # get the field value stored on the source
+                    # get the field value stored on the source
                     context = parent or source
                     value = self.get_field_value(field, context)
                 else:
-        # get the default value of this field
+                    # get the default value of this field
                     value = self.get_default_value(
                         field, ar_context, arnum=arnum)
-        # store the value on the new fieldname
+                # store the value on the new fieldname
                 new_fieldname = self.get_fieldname(field, arnum)
                 out[new_fieldname] = value
 
@@ -436,7 +436,7 @@ class AnalysisRequestAddView(BrowserView):
         if len(contacts) == 1:
             return api.get_object(contacts[0])
         elif client == api.get_current_client():
-        # Current user is a Client contact. Use current contact
+            # Current user is a Client contact. Use current contact
             current_user = api.get_current_user()
             return api.get_user_contact(current_user,
                                         contact_types=["Contact"])
@@ -479,7 +479,7 @@ class AnalysisRequestAddView(BrowserView):
 
         out = []
         for field in mv.get_fields_with_visibility(visibility, mode):
-        # check custom field condition
+            # check custom field condition
             visible = self.is_field_visible(field)
             if visible is False and visibility != "hidden":
                 continue
@@ -506,7 +506,7 @@ class AnalysisRequestAddView(BrowserView):
             restricted_categories = client.getRestrictedCategories()
             restricted_category_ids = map(
                 lambda c: c.getId(), restricted_categories)
-        # keep correct order of categories
+            # keep correct order of categories
             if restricted_category_ids:
                 categories = filter(
                     lambda c: c.getId in restricted_category_ids, categories)
@@ -721,11 +721,11 @@ class AnalysisRequestManageView(BrowserView):
                 v = "hidden"
 
             visibility_guard = True
-        # visibility_guard is a widget field defined in the schema in order
-        # to know the visibility of the widget when the field is related to
-        # a dynamically changing content such as workflows. For instance
-        # those fields related to the workflow will be displayed only if
-        # the workflow is enabled, otherwise they should not be shown.
+            # visibility_guard is a widget field defined in the schema in order
+            # to know the visibility of the widget when the field is related to
+            # a dynamically changing content such as workflows. For instance
+            # those fields related to the workflow will be displayed only if
+            # the workflow is enabled, otherwise they should not be shown.
             if 'visibility_guard' in dir(field.widget):
                 visibility_guard = eval(field.widget.visibility_guard)
             if v == visibility and visibility_guard:
@@ -832,10 +832,10 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
                 new_key = key.replace(s1, "")
                 value = form.get(key)
                 if self.is_uid_reference_field(new_key):
-        # handle new UID reference fields that store references in
-        # a textarea (one UID per line)
+                    # handle new UID reference fields that store references in
+                    # a textarea (one UID per line)
                     uids = value.split("\r\n")
-        # remove empties
+                    # remove empties
                     uids = list(filter(None, uids))
                     if self.is_multi_reference_field(new_key):
                         value = uids
@@ -1111,7 +1111,7 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
         proper creation of Attachment objects
         """
         if not fileupload.filename:
-        # ZPublisher.HTTPRequest.FileUpload is empty
+            # ZPublisher.HTTPRequest.FileUpload is empty
             return None
         return {
             "AttachmentFile": fileupload,
@@ -1130,7 +1130,7 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
         attachment = api.create(client, "Attachment", **attachment_record)
         uid = attachment_record.get("Service")
         if not uid:
-        # Link the attachment to the sample
+            # Link the attachment to the sample
             sample.addAttachment(attachment)
             return attachment
 
@@ -1186,7 +1186,7 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
             return {"allowed": True}
 
         if all([catalog, query, uids]):
-        # check if the current value is allowed for the new query
+            # check if the current value is allowed for the new query
             brains = api.search(query, catalog=catalog)
             allowed_uids = list(map(api.get_uid, brains))
             if set(uids).issubset(allowed_uids):
@@ -1252,22 +1252,22 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
         out = {}
         records = self.get_records()
         for num_sample, record in enumerate(records):
-        # Get reference fields metadata
+            # Get reference fields metadata
             metadata = self.get_record_metadata(record)
 
-        # service_to_templates, template_to_services
+            # service_to_templates, template_to_services
             templates_additional = self.get_template_additional_info(metadata)
             metadata.update(templates_additional)
 
-        # service_to_profiles, profiles_to_services
+            # service_to_profiles, profiles_to_services
             profiles_additional = self.get_profiles_additional_info(metadata)
             metadata.update(profiles_additional)
 
-        # services conducted beyond the holding time limit
+            # services conducted beyond the holding time limit
             beyond = self.get_services_beyond_holding_time(record)
             metadata["beyond_holding_time"] = beyond
 
-        # Set the metadata for current sample number (column)
+            # Set the metadata for current sample number (column)
             out[num_sample] = metadata
 
         return out
@@ -1313,11 +1313,11 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
         services = self.get_services_max_holding_time()
         for uid, max_holding_time in services.items():
 
-        # calculate the maximum holding date
+            # calculate the maximum holding date
             delta = timedelta(minutes=api.to_minutes(**max_holding_time))
             max_holding_date = start_date + delta
 
-        # TypeError: can't compare offset-naive and offset-aware datetimes
+            # TypeError: can't compare offset-naive and offset-aware datetimes
             max_date = dtime.to_ansi(max_holding_date)
             now = dtime.to_ansi(dtime.now(), timezone=tz)
             if now > max_date:
@@ -1344,17 +1344,17 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
             if not value:
                 continue
 
-        # Get objects information (metadata)
+            # Get objects information (metadata)
             objs_info = self.get_objects_info(record, key)
             objs_uids = map(lambda obj: obj["uid"], objs_info)
             metadata[metadata_key] = dict(zip(objs_uids, objs_info))
 
-        # Grab 'field_values' fields to be recalculated too
+            # Grab 'field_values' fields to be recalculated too
             for obj_info in objs_info:
                 field_values = obj_info.get("field_values", {})
                 for field_name, field_value in field_values.items():
                     if not isinstance(field_value, dict):
-        # this is probably a list, e.g. "Profiles" field
+                        # this is probably a list, e.g. "Profiles" field
                         continue
                     uids = self.get_uids_from_record(field_value, "uid")
                     if len(uids) == 1:
@@ -1364,7 +1364,7 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
         for field_name, uid in extra_fields.items():
             key = "{}_metadata".format(field_name.lower())
             if metadata.get(key):
-        # This object has been processed already, skip
+                # This object has been processed already, skip
                 continue
             obj = self.get_object_by_uid(uid)
             if not obj:
@@ -1385,22 +1385,22 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
         # We don't expect more than one template, but who knows about future?
         for uid, obj_info in template.items():
             obj = self.get_object_by_uid(uid)
-        # get the template services
-        # [{'part_id': 'part-1', 'uid': '...'},
-        # {'part_id': 'part-1', 'uid': '...'}]
+            # get the template services
+            # [{'part_id': 'part-1', 'uid': '...'},
+            # {'part_id': 'part-1', 'uid': '...'}]
             services = obj.getRawServices() or []
-        # get all UIDs of the template records
+            # get all UIDs of the template records
             service_uids = map(lambda rec: rec.get("uid"), services)
-        # remember a mapping of template uid -> service
+            # remember a mapping of template uid -> service
             template_to_services[uid] = service_uids
-        # remember a mapping of service uid -> templates
+            # remember a mapping of service uid -> templates
             for service_uid in service_uids:
-        # remember the template of all services
+                # remember the template of all services
                 if service_uid in service_to_templates:
                     service_to_templates[service_uid].append(uid)
                 else:
                     service_to_templates[service_uid] = [uid]
-        # remember the service metadata
+                # remember the service metadata
                 if service_uid not in service_metadata:
                     service = self.get_object_by_uid(service_uid)
                     service_info = self.get_service_info(service)
@@ -1419,22 +1419,22 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
         profiles = metadata.get("profiles_metadata", {})
         for uid, obj_info in profiles.items():
             obj = self.get_object_by_uid(uid)
-        # get all services of this profile
+            # get all services of this profile
             services = obj.getServices()
-        # get all UIDs of the profile services
+            # get all UIDs of the profile services
             service_uids = map(api.get_uid, services)
-        # remember all services of this profile
+            # remember all services of this profile
             profile_to_services[uid] = service_uids
-        # remember a mapping of service uid -> profiles
+            # remember a mapping of service uid -> profiles
             for service in services:
-        # get the UID of this service
+                # get the UID of this service
                 service_uid = api.get_uid(service)
-        # remember the profiles of this service
+                # remember the profiles of this service
                 if service_uid in service_to_profiles:
                     service_to_profiles[service_uid].append(uid)
                 else:
                     service_to_profiles[service_uid] = [uid]
-        # remember the service metadata
+                # remember the service metadata
                 if service_uid not in service_metadata:
                     service_info = self.get_service_info(service)
                     service_metadata[service_uid] = service_info
@@ -1556,22 +1556,22 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
         """
         uid = api.get_uid(obj)
         queries = {
-        # Display Sample Points that have this sample type assigned plus
-        # those that do not have a sample type assigned
+            # Display Sample Points that have this sample type assigned plus
+            # those that do not have a sample type assigned
             "SamplePoint": {
                 "sampletype_uid": [uid, ""],
             },
-        # Display Analysis Profiles that have this sample type assigned
-        # in addition to those that do not have a sample profile assigned
+            # Display Analysis Profiles that have this sample type assigned
+            # in addition to those that do not have a sample profile assigned
             "Profiles": {
                 "sampletype_uid": [uid, ""],
             },
-        # Display Specifications that have this sample type assigned only
+            # Display Specifications that have this sample type assigned only
             "Specification": {
                 "sampletype_uid": uid,
             },
-        # Display Sample Templates that have this sample type assigned plus
-        # those that do not have a sample type assigned
+            # Display Sample Templates that have this sample type assigned plus
+            # those that do not have a sample type assigned
             "Template": {
                 "sampletype_uid": [uid, ""],
             }
@@ -1643,7 +1643,7 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
             profiles = map(self.get_object_by_uid, profile_uids)
             services = map(self.get_object_by_uid, record.get("Analyses", []))
 
-        # ANALYSIS PROFILES PRICE
+            # ANALYSIS PROFILES PRICE
             for profile in profiles:
                 use_profile_price = profile.getUseAnalysisProfilePrice()
                 if not use_profile_price:
@@ -1655,20 +1655,20 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
                 profile_services = profile.getServices()
                 services_from_priced_profile.extend(profile_services)
 
-        # ANALYSIS SERVICES PRICE
+            # ANALYSIS SERVICES PRICE
             for service in services:
-        # skip services that are part of a priced profile
+                # skip services that are part of a priced profile
                 if service in services_from_priced_profile:
                     continue
                 service_price = float(service.getPrice())
-        # service_vat = float(service.getVAT())
+                # service_vat = float(service.getVAT())
                 service_vat_amount = float(service.getVATAmount())
                 arservice_vat_amount += service_vat_amount
                 arservices_price += service_price
 
             base_price = arservices_price + arprofiles_price
 
-        # Calculate the member discount if it applies
+            # Calculate the member discount if it applies
             if member_discount and member_discount_applies:
                 logger.info("Member discount applies with {}%".format(
                     member_discount))
@@ -1719,7 +1719,7 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
         samples. Returns None otherwise
         """
         if self.request.form.get("confirmed") == "1":
-        # User pressed the "yes" button in the confirmation pane already
+            # User pressed the "yes" button in the confirmation pane already
             return None
 
         # Find out if there is a confirmation adapter available
@@ -1764,39 +1764,39 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
         # Validate required fields
         for num, record in enumerate(records):
 
-        # Extract file uploads (fields ending with _file)
-        # These files will be added later as attachments
+            # Extract file uploads (fields ending with _file)
+            # These files will be added later as attachments
             file_fields = filter(lambda f: f.endswith("_file"), record)
             uploads = map(lambda f: record.pop(f), file_fields)
             attachments = [self.to_attachment_record(f) for f in uploads]
 
-        # Required fields and their values
+            # Required fields and their values
             required_values = [record.get(key) for key in required_keys]
             required_fields = dict(zip(required_keys, required_values))
 
-        # Client field is required but hidden in the AR Add form. We remove
-        # it therefore from the list of required fields to let empty
-        # columns pass the required check below.
+            # Client field is required but hidden in the AR Add form. We remove
+            # it therefore from the list of required fields to let empty
+            # columns pass the required check below.
             if record.get("Client", False):
                 required_fields.pop("Client", None)
 
-        # Check if analyses are required for sample registration
+            # Check if analyses are required for sample registration
             if not self.analyses_required():
                 required_fields.pop("Analyses", None)
 
-        # Contacts get pre-filled out if only one contact exists.
-        # We won't force those columns with only the Contact filled out to
-        # be required.
+            # Contacts get pre-filled out if only one contact exists.
+            # We won't force those columns with only the Contact filled out to
+            # be required.
             contact = required_fields.pop("Contact", None)
 
-        # None of the required fields are filled, skip this record
+            # None of the required fields are filled, skip this record
             if not any(required_fields.values()):
                 continue
 
-        # Re-add the Contact
+            # Re-add the Contact
             required_fields["Contact"] = contact
 
-        # Check if the contact belongs to the selected client
+            # Check if the contact belongs to the selected client
             contact_obj = api.get_object(contact, None)
             if not contact_obj:
                 fielderrors["Contact"] = _("No valid contact")
@@ -1806,7 +1806,7 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
                     msg = _("Contact does not belong to the selected client")
                     fielderrors["Contact"] = msg
 
-        # Check if the number of samples per record is permitted
+            # Check if the number of samples per record is permitted
             num_samples = self.get_num_samples(record)
             if num_samples > max_samples_record:
                 msg = _(u"error_analyssirequest_numsamples_above_max",
@@ -1820,23 +1820,23 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
                         })
                 fielderrors["NumSamples"] = self.context.translate(msg)
 
-        # Missing required fields
+            # Missing required fields
             missing = [f for f in required_fields if not record.get(f, None)]
 
-        # Handle fields from Service conditions
+            # Handle fields from Service conditions
             for condition in record.get("ServiceConditions", []):
                 if condition.get("type") == "file":
-        # Add the file as an attachment
+                    # Add the file as an attachment
                     file_upload = condition.get("value")
                     att = self.to_attachment_record(file_upload)
                     if att:
-        # Add the file as an attachment
+                        # Add the file as an attachment
                         att.update({
                             "Service": condition.get("uid"),
                             "Condition": condition.get("title"),
                         })
                         attachments.append(att)
-        # Reset the condition value
+                    # Reset the condition value
                     filename = file_upload and file_upload.filename or ""
                     condition.value = filename
 
@@ -1846,14 +1846,14 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
                         if title not in missing:
                             missing.append(title)
 
-        # If there are required fields missing, flag an error
+            # If there are required fields missing, flag an error
             for field in missing:
                 fieldname = "{}-{}".format(field, num)
                 label = self.get_field_label(field) or field
                 msg = self.context.translate(_("Field '{}' is required"))
                 fielderrors[fieldname] = msg.format(label)
 
-        # Process and validate field values
+            # Process and validate field values
             valid_record = dict()
             tmp_sample = self.get_ar()
             for field in fields:
@@ -1862,13 +1862,13 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
                 if field_value in ['', None]:
                     continue
 
-        # process the value as the widget would usually do
+                # process the value as the widget would usually do
                 process_value = field.widget.process_form
                 value, msgs = process_value(tmp_sample, field, record)
                 if not value:
                     continue
 
-        # --- 🔧 Copiar MRN y Fullname desde Patient al AR ---
+            # --- 🔧 Copiar MRN y Fullname desde Patient al AR ---
             patient_uid = record.get("Patient")
             if patient_uid:
                 patient = self.get_object_by_uid(patient_uid)
@@ -1884,19 +1884,50 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
                     )
 
 
-        # store the processed value as the valid record
+                # store the processed value as the valid record
                 valid_record[field_name] = value
 
-        # validate the value
+                # validate the value
                 error = field.validate(value, tmp_sample)
                 if error:
                     field_name = "{}-{}".format(field_name, num)
                     fielderrors[field_name] = error
 
+    
+        # --- Copy MRN and Patient Full Name from Patient into the AR record ---
+        try:
+            patient_uid = None
+            # Prefer processed value stored in valid_record (post-widget)
+            pv = valid_record.get("Patient")
+            if isinstance(pv, basestring) and pv:
+                patient_uid = pv
+            elif isinstance(pv, (list, tuple)) and pv:
+                patient_uid = pv[0]
+            # Fallback to raw record
+            if not patient_uid:
+                rv = record.get("Patient")
+                if isinstance(rv, basestring) and rv:
+                    patient_uid = rv
+                elif isinstance(rv, (list, tuple)) and rv:
+                    patient_uid = rv[0]
+
+            if patient_uid:
+                patient = self.get_object_by_uid(patient_uid)
+                if patient:
+                    mrn = getattr(patient, "getMRN", lambda: "")() or getattr(patient, "mrn", "") or ""
+                    fullname = getattr(patient, "getFullname", lambda: "")() or getattr(patient, "Title", lambda: "")() or ""
+                    # Store in both structures to support downstream flows (AJAX + create_samples)
+                    record["MedicalRecordNumber"] = mrn
+                    record["PatientFullName"] = fullname
+                    valid_record["MedicalRecordNumber"] = mrn
+                    valid_record["PatientFullName"] = fullname
+                    logger.info("[AR Add] Mapped Patient -> MRN='%s' FullName='%s'" % (mrn, fullname))
+        except Exception as _e:
+            logger.warn("[AR Add] Could not map Patient MRN/FullName: %s" % _e)
         # add the attachments to the record
             valid_record["attachments"] = filter(None, attachments)
 
-        # append the valid record to the list of valid records
+            # append the valid record to the list of valid records
             valid_records.append(valid_record)
 
         # return immediately with an error response if some field checks failed
@@ -1911,7 +1942,7 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
         for name, validator in validators:
             validation_err = validator.validate(valid_records)
             if validation_err:
-        # Not valid, return immediately with an error response
+                # Not valid, return immediately with an error response
                 return {"errors": validation_err}
 
         # create the samples
@@ -1954,15 +1985,15 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
             if not client:
                 raise ValueError("No client found")
 
-        # Pop the attachments
+            # Pop the attachments
             attachments = record.pop("attachments", [])
 
-        # Create as many samples as required
+            # Create as many samples as required
             num_samples = self.get_num_samples(record)
             for idx in range(num_samples):
                 sample = crar(client, self.request, record)
 
-        # Create the attachments
+                # Create the attachments
                 for attachment_record in attachments:
                     self.create_attachment(sample, attachment_record)
 
@@ -2016,8 +2047,8 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
         # Get the submit action (either "Save" or "Save and Copy")
         submit_action = self.request.form.get("submit_action", "save")
         if submit_action == "save_and_copy":
-        # redirect to the sample add form, but keep track of
-        # previous created sample UIDs
+            # redirect to the sample add form, but keep track of
+            # previous created sample UIDs
             redirect_to = "{}/ar_add?copy_from={}&ar_count={}&sample_uids={}" \
                 .format(self.context.absolute_url(),
                         ",".join(uids),  # copy_from
@@ -2048,10 +2079,10 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
             """
             new_pairs = []
             for key, value in pairs.iteritems():
-        # Encode the key
+                # Encode the key
                 if isinstance(key, six.string_types):
                     key = key.encode(encoding)
-        # Encode the value
+                # Encode the value
                 if isinstance(value, six.string_types):
                     value = value.encode(encoding)
                 new_pairs.append((key, value))
