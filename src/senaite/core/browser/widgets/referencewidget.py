@@ -3,13 +3,13 @@
 # This file is part of SENAITE.CORE.
 #
 # SENAITE.CORE is free software: you can redistribute it and/or modify it under
-# the terms of the GNU General Public License as published by the Free Software
-# Foundation, version 2.
+# the terms of the GNU General Public License as published by the Free
+# Software Foundation, version 2.
 #
-# This program is distributed in the hope that it will be useful, but WITHOUT
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
-# details.
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License along with
 # this program; if not, write to the Free Software Foundation, Inc., 51
@@ -18,7 +18,6 @@
 # Copyright 2018-2025 by it's authors.
 # Some rights reserved, see README and LICENSE.
 
-# -*- coding: utf-8 -*-
 import re
 import json
 import string
@@ -29,48 +28,60 @@ from bika.lims import bikaMessageFactory as _
 from bika.lims import logger
 from Products.Archetypes.Registry import registerWidget
 from senaite.core.browser.widgets.queryselect import QuerySelectWidget
+from senaite.patient.api import _extract_fullname  # para normalizar nombre
 
-# Universal: usamos Title, pero damos soporte a Fullname/MRN
+DISPLAY_TEMPLATE = "<a href='${url}' _target='blank'>${Fullname}</a>"
 IGNORE_COLUMNS = ["UID"]
 
 
 class ReferenceWidget(QuerySelectWidget):
-    """UID Reference Widget ajustado:
-    - Mantiene Title como clave universal (colModel, ui_item, sidx).
-    - Añade Fullname y MRN en get_render_data para usarlos en display_template.
+    """UID Reference Widget extendido con MRN y 4 campos de nombre
     """
+    # CSS class that is picked up by the ReactJS component
     klass = u"senaite-uidreference-widget-input"
 
     _properties = QuerySelectWidget._properties.copy()
     _properties.update({
+
         "value_key": "uid",
         "value_query_index": "UID",
+
+        # BBB: OLD PROPERTIES
         "url": "referencewidget_search",
         "catalog_name": None,
+        # base_query can be a dict or a callable returning a dict
         "base_query": {},
+        # columnas a mostrar en el popup de búsqueda
         "colModel": [
-            {"columnName": "Title", "width": "50", "label": _("Full name"), "align": "left"},
-            {"columnName": "Description", "width": "50", "label": _("Description"), "align": "left"},
+            {"columnName": "mrn", "width": "15", "label": _(u"MRN"), "align": "left"},
+            {"columnName": "firstname", "width": "20", "label": _(u"Firstname"), "align": "left"},
+            {"columnName": "middlename", "width": "20", "label": _(u"Middlename"), "align": "left"},
+            {"columnName": "lastname", "width": "20", "label": _(u"Lastname"), "align": "left"},
+            {"columnName": "maternal_lastname", "width": "20", "label": _(u"Second Lastname"), "align": "left"},
+            {"columnName": "getLocalizedBirthdate", "width": "20", "label": _(u"Birthdate"), "align": "left"},
             {"columnName": "UID", "hidden": True},
         ],
-        "ui_item": "Title",
+        "ui_item": "Fullname",
         "search_fields": [],
         "discard_empty": [],
-        "popup_width": "550px",
+        "popup_width": "650px",
         "showOn": False,
         "searchIcon": True,
         "minLength": "0",
         "delay": "500",
         "resetButton": False,
         "sord": "asc",
-        "sidx": "Title",
+        "sidx": "mrn",
         "force_all": False,
         "portal_types": {},
     })
 
     def process_form(self, instance, field, form, empty_marker=None,
                      emptyReturnsMarker=False, validating=True):
+        """Convert the stored UIDs from the text field for the UID reference field
+        """
         value = form.get(field.getName(), "")
+
         if api.is_string(value):
             uids = value.split("\r\n")
         elif isinstance(value, (list, tuple, set)):
@@ -79,9 +90,12 @@ class ReferenceWidget(QuerySelectWidget):
             uids = [api.get_uid(value)]
         else:
             uids = []
+
+        # handle custom setters that expect only a UID, e.g. setSpecification
         multi_valued = getattr(field, "multiValued", self.multi_valued)
         if not multi_valued:
             uids = uids[0] if len(uids) > 0 else ""
+
         return uids, {}
 
     def get_multi_valued(self, context, field, default=None):
@@ -91,11 +105,8 @@ class ReferenceWidget(QuerySelectWidget):
         return multi_valued
 
     def get_display_template(self, context, field, default=None):
-        prop = getattr(self, "display_template", None)
-        if prop is not None:
-            return prop
-        # Universal → Title
-        return "<a href='${url}' target='_blank'>${Title}</a>"
+        # ahora usamos Fullname por defecto
+        return DISPLAY_TEMPLATE
 
     def get_catalog(self, context, field, default=None):
         prop = getattr(self, "catalog", None)
@@ -176,48 +187,37 @@ class ReferenceWidget(QuerySelectWidget):
     def get_render_data(self, context, field, uid, template):
         regex = r"\{(.*?)\}"
         names = re.findall(regex, template)
+
         try:
             obj = api.get_object(uid)
         except api.APIError:
             logger.error("No object found for field '{}' with UID '{}'".format(
                 field.getName(), uid))
             return {}
-        # Fullname
-        fullname = None
-        try:
-            if hasattr(obj, "getFullname"):
-                fullname = obj.getFullname()
-            elif hasattr(obj, "patient_fullname"):
-                fullname = getattr(obj, "patient_fullname", None)
-        except Exception as e:
-            logger.warn("Could not build patient fullname: %s", e)
-        if not fullname:
-            fullname = api.get_title(obj)
-        # MRN
-        mrn = None
-        for getter in ("getMRN", "getPatientID"):
-            if hasattr(obj, getter):
-                try:
-                    mrn = getattr(obj, getter)()
-                    break
-                except Exception:
-                    pass
-        if mrn is None:
-            mrn = getattr(obj, "mrn", None)
+
         data = {
             "uid": api.get_uid(obj),
             "url": api.get_url(obj),
-            "Title": api.get_title(obj),  # universal
-            "Fullname": fullname or api.get_title(obj),
-            "mrn": mrn,
+            "mrn": getattr(obj, "getMRN", lambda: u"")(),
+            "firstname": getattr(obj, "getFirstname", lambda: u"")(),
+            "middlename": getattr(obj, "getMiddlename", lambda: u"")(),
+            "lastname": getattr(obj, "getLastname", lambda: u"")(),
+            "maternal_lastname": getattr(obj, "getMaternalLastname", lambda: u"")(),
+            "getLocalizedBirthdate": getattr(obj, "getLocalizedBirthdate", lambda: u"")(),
+            "Title": api.get_title(obj),
             "Description": api.get_description(obj),
         }
+
+        # construir Fullname normalizado
+        data["Fullname"] = _extract_fullname(data)
+
         for name in names:
             if name not in data:
                 value = getattr(obj, name, None)
                 if callable(value):
                     value = value()
                 data[name] = value
+
         return data
 
     def render_reference(self, context, field, uid):
@@ -234,4 +234,3 @@ class ReferenceWidget(QuerySelectWidget):
 
 
 registerWidget(ReferenceWidget, title="Reference Widget")
-
