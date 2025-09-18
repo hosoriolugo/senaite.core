@@ -19,7 +19,6 @@
 # Some rights reserved, see README and LICENSE.
 
 import json
-import logging
 from collections import OrderedDict
 from datetime import datetime
 from datetime import timedelta
@@ -87,83 +86,6 @@ def cache_key(method, self, obj):
     if obj is None:
         raise DontCache
     return api.get_cache_key(obj)
-
-
-# --- MRN/Paciente helpers (surgical patch) ---
-try:
-    basestring
-except NameError:
-    basestring = str
-
-def _extract_mrn(value):
-    """Return MRN as unicode string from various widget payloads.
-    Accepts plain string, dicts from ReferenceWidget/patient widget, or None.
-    """
-    try:
-        if isinstance(value, basestring):
-            return value.strip()
-        if isinstance(value, dict):
-            # Common keys that might carry the MRN
-            for key in ('mrn', 'MRN', 'value', 'text', 'label', 'title', 'Title'):
-                v = value.get(key)
-                if isinstance(v, basestring) and v.strip():
-                    return v.strip()
-        return u"" 
-    except Exception as e:
-        logger = logging.getLogger("senaite.core")  # keep same channel
-        logger.warning("[ARAdd][MRN] _extract_mrn error: %r (value type=%s)", e, type(value))
-        return u""
-
-def _extract_fullname(value):
-    """Build a full name from dict payload or return string as-is."""
-    try:
-        if isinstance(value, basestring):
-            return value.strip()
-        if isinstance(value, dict):
-            parts = []
-            for k in ('firstname','middlename','lastname','maternal_lastname','first_name','middle_name','last_name'):
-                v = value.get(k)
-                if isinstance(v, basestring) and v.strip():
-                    parts.append(v.strip())
-            # Fallback to title/label
-            if not parts:
-                for k in ('title','Title','label','text'):
-                    v = value.get(k)
-                    if isinstance(v, basestring) and v.strip():
-                        parts.append(v.strip())
-            return u" ".join(parts).strip()
-        return u""
-    except Exception as e:
-        logger = logging.getLogger("senaite.core")
-        logger.warning("[ARAdd][MRN] _extract_fullname error: %r (value type=%s)", e, type(value))
-        return u""
-
-def _coerce_record_mrn_patient(record, logger=None):
-    """Ensure record has string MRN and PatientFullName when possible.
-    Adds very specific logs about which field is missing.
-    """
-    if logger is None:
-        logger = logging.getLogger("senaite.core")
-    mrn_val = record.get('MedicalRecordNumber') or record.get('MRN')
-    pat_val = record.get('Patient') or record.get('PatientUID')
-    # Try to coerce MRN from either MRN or Patient dict
-    mrn = _extract_mrn(mrn_val) or _extract_mrn(pat_val)
-    fullname = _extract_fullname(pat_val)
-    missing = []
-    if not mrn:
-        missing.append('MRN')
-    if not fullname:
-        missing.append('Patient')
-    if missing:
-        logger.warning("[ARAdd][MRN] Falta %s en el formulario: MRN='%s' PatientFullName='%s'", 
-                       ' y '.join(missing), mrn, fullname)
-    # Write back normalized values if available
-    if mrn:
-        record['MedicalRecordNumber'] = mrn
-    if fullname:
-        record['PatientFullName'] = fullname
-    return record
-# --- end helpers ---
 
 
 class AnalysisRequestAddView(BrowserView):
@@ -1360,7 +1282,7 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
         services = {}
         query = {
             "portal_type": "AnalysisService",
-            "point_of capture": "lab",
+            "point_of_capture": "lab",
             "is_active": True,
         }
         brains = api.search(query, SETUP_CATALOG)
@@ -2021,8 +1943,6 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
 
             # Create as many samples as required
             num_samples = self.get_num_samples(record)
-            # Surgical: normalize MRN/Patient fields for this record
-            _coerce_record_mrn_patient(record, logging.getLogger('senaite.core'))
             for idx in range(num_samples):
                 sample = crar(client, self.request, record)
 
