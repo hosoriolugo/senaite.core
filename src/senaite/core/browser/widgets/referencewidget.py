@@ -3,8 +3,8 @@
 # This file is part of SENAITE.CORE.
 #
 # SENAITE.CORE is free software: you can redistribute it and/or modify it under
-# the terms of the GNU General Public License as published by the Free
-# Software Foundation, version 2.
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation, version 2.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -30,14 +30,18 @@ from Products.Archetypes.Registry import registerWidget
 from senaite.core.browser.widgets.queryselect import QuerySelectWidget
 from senaite.patient.api import _extract_fullname  # para normalizar nombre
 
-DISPLAY_TEMPLATE = "<a href='${url}' _target='blank'>${Fullname}</a>"
+# Ahora el template incluye fallback con MRN y nombres
+DISPLAY_TEMPLATE = (
+    "<a href='${url}' target='_blank'>"
+    "${Fullname} ${mrn} ${firstname} ${middlename} ${lastname} ${maternal_lastname}"
+    "</a>"
+)
 IGNORE_COLUMNS = ["UID"]
 
 
 class ReferenceWidget(QuerySelectWidget):
-    """UID Reference Widget extendido con MRN y 4 campos de nombre
-    """
-    # CSS class that is picked up by the ReactJS component
+    """UID Reference Widget extendido con MRN y 4 campos de nombre"""
+
     klass = u"senaite-uidreference-widget-input"
 
     _properties = QuerySelectWidget._properties.copy()
@@ -46,12 +50,9 @@ class ReferenceWidget(QuerySelectWidget):
         "value_key": "uid",
         "value_query_index": "UID",
 
-        # BBB: OLD PROPERTIES
         "url": "referencewidget_search",
         "catalog_name": None,
-        # base_query can be a dict or a callable returning a dict
         "base_query": {},
-        # columnas a mostrar en el popup de búsqueda
         "colModel": [
             {"columnName": "mrn", "width": "15", "label": _(u"MRN"), "align": "left"},
             {"columnName": "firstname", "width": "20", "label": _(u"Firstname"), "align": "left"},
@@ -78,8 +79,6 @@ class ReferenceWidget(QuerySelectWidget):
 
     def process_form(self, instance, field, form, empty_marker=None,
                      emptyReturnsMarker=False, validating=True):
-        """Convert the stored UIDs from the text field for the UID reference field
-        """
         value = form.get(field.getName(), "")
 
         if api.is_string(value):
@@ -91,7 +90,6 @@ class ReferenceWidget(QuerySelectWidget):
         else:
             uids = []
 
-        # handle custom setters that expect only a UID, e.g. setSpecification
         multi_valued = getattr(field, "multiValued", self.multi_valued)
         if not multi_valued:
             uids = uids[0] if len(uids) > 0 else ""
@@ -105,7 +103,6 @@ class ReferenceWidget(QuerySelectWidget):
         return multi_valued
 
     def get_display_template(self, context, field, default=None):
-        # ahora usamos Fullname por defecto
         return DISPLAY_TEMPLATE
 
     def get_catalog(self, context, field, default=None):
@@ -208,8 +205,16 @@ class ReferenceWidget(QuerySelectWidget):
             "Description": api.get_description(obj),
         }
 
-        # construir Fullname normalizado
-        data["Fullname"] = _extract_fullname(data)
+        # construir Fullname normalizado con fallback
+        fullname = _extract_fullname(data)
+        if not fullname.strip():
+            fullname = u" ".join(filter(None, [
+                data.get("firstname", u""),
+                data.get("middlename", u""),
+                data.get("lastname", u""),
+                data.get("maternal_lastname", u""),
+            ])).strip()
+        data["Fullname"] = fullname
 
         for name in names:
             if name not in data:
