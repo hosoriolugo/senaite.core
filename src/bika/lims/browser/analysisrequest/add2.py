@@ -2043,19 +2043,18 @@ class ajaxAnalysisRequestAddView(AnalysisRequestAddView):
 
         return json.loads(body, object_hook=encode_hook)
 
-    # =============================================================================
+# =============================================================================
 # Ajuste Opción A: Indexadores en vivo desde Paciente vinculado
 # Nativo en SENAITE 2.6
 # -----------------------------------------------------------------------------
-# NOTA: Estos métodos no guardan MRN ni Nombre dentro del AR,
-#       sino que siempre los leen en vivo desde el objeto Paciente
-#       relacionado. Esto mantiene compatibilidad con la arquitectura
-#       de SENAITE 2.6 y asegura que los listados puedan mostrar
-#       la información correctamente.
+# NOTA:
+#  - Estos métodos NO guardan MRN ni Nombre dentro del AR.
+#  - Siempre se leen en vivo desde el objeto Paciente relacionado.
+#  - Mantiene compatibilidad con la arquitectura nativa de SENAITE 2.6.
 # =============================================================================
 
 from plone.indexer import indexer
-from senaite.core.interfaces import IRequestAnalysis
+from bika.lims.interfaces.analysis import IRequestAnalysis
 
 
 def _build_patient_fullname(patient):
@@ -2084,5 +2083,3 @@ def getPatientFullname(obj):
     """Indexador para nombre completo desde Paciente vinculado"""
     patient = obj.getPatient()
     return _build_patient_fullname(patient)
-
-
