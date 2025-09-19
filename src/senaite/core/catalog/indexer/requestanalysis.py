@@ -6,10 +6,10 @@
 # the terms of the GNU General Public License as published by the Free Software
 # Foundation, version 2.
 #
-# This program is distributed in the hope that it will be useful, but WITHOUT
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
-# details.
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License along with
 # this program; if not, write to the Free Software Foundation, Inc., 51
@@ -21,6 +21,17 @@
 from bika.lims import api
 from bika.lims.interfaces.analysis import IRequestAnalysis
 from plone.indexer import indexer
+from Missing import Missing
+
+
+def safe_text(val):
+    """Normaliza valores a unicode seguro para el catálogo"""
+    if val in (None, Missing.Value):
+        return u""
+    try:
+        return api.safe_unicode(val)
+    except Exception:
+        return u""
 
 
 @indexer(IRequestAnalysis)
@@ -31,3 +42,31 @@ def getAncestorsUIDs(instance):
     request = instance.getRequest()
     parents = map(lambda ar: api.get_uid(ar), request.getAncestors())
     return [api.get_uid(request)] + parents
+
+
+@indexer(IRequestAnalysis)
+def getMedicalRecordNumberValue(instance):
+    """Indexa el MRN del paciente asociado al AR"""
+    try:
+        return safe_text(instance.getMedicalRecordNumberValue())
+    except Exception:
+        return u""
+
+
+@indexer(IRequestAnalysis)
+def getPatientUID(instance):
+    """Indexa el UID del paciente asociado al AR"""
+    try:
+        patient = getattr(instance, "getPatient", lambda: None)()
+        return api.get_uid(patient) if patient else u""
+    except Exception:
+        return u""
+
+
+@indexer(IRequestAnalysis)
+def getPatientFullName(instance):
+    """Indexa el nombre completo del paciente asociado al AR"""
+    try:
+        return safe_text(instance.getPatientFullName())
+    except Exception:
+        return u""
