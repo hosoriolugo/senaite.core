@@ -6,67 +6,163 @@
 # the terms of the GNU General Public License as published by the Free Software
 # Foundation, version 2.
 #
-# This program is distributed in the hope that it will be useful,
+# SENAITE.CORE is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License along with
 # this program; if not, write to the Free Software Foundation, Inc., 51
 # Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
-# Copyright 2018-2025 by it's authors.
-# Some rights reserved, see README and LICENSE.
+# ------------------------------------------------------------------------
+# Adjusted: Added robust indexers for MRN and Patient fields in ARs
+# ------------------------------------------------------------------------
+
+from __future__ import absolute_import
 
 from bika.lims import api
 from bika.lims.interfaces.analysis import IRequestAnalysis
 from plone.indexer import indexer
-from Missing import Missing
+
+try:
+    basestring
+except NameError:
+    basestring = str
 
 
-def safe_text(val):
-    """Normaliza valores a unicode seguro para el catálogo"""
-    if val in (None, Missing.Value):
-        return u""
+def _safe_unicode(value):
     try:
-        return api.safe_unicode(val)
+        return api.safe_unicode(value or u"")
     except Exception:
+        try:
+            return api.safe_unicode(u"%s" % value)
+        except Exception:
+            return u""
+
+
+def _get_patient(obj):
+    """Resolve patient from AR object or MRN fallback"""
+    getter = getattr(obj, "getPatient", None)
+    patient = None
+    if callable(getter):
+        try:
+            patient = getter()
+        except Exception:
+            patient = None
+
+    if not patient:
+        # fallback by MRN
+        for key in (
+            "getMedicalRecordNumberValue",
+            "MedicalRecordNumber",
+            "getMedicalRecordNumber",
+            "medical_record_number",
+            "mrn",
+        ):
+            acc = getattr(obj, key, None)
+            mrn = None
+            if callable(acc):
+                try:
+                    mrn = acc()
+                except Exception:
+                    mrn = None
+            elif isinstance(acc, basestring):
+                mrn = acc
+            if mrn:
+                try:
+                    from senaite.patient.api import get_patient_by_mrn
+                    patient = get_patient_by_mrn(mrn)
+                except Exception:
+                    patient = None
+                break
+    return patient
+
+
+def _patient_fullname(patient):
+    """Build robust patient fullname"""
+    if not patient:
         return u""
+    for key in ("getFullName", "getPatientFullName", "Title"):
+        acc = getattr(patient, key, None)
+        if callable(acc):
+            try:
+                return _safe_unicode(acc())
+            except Exception:
+                pass
+
+    parts = []
+    for fld in ("firstname", "middlename", "lastname", "maternallastname"):
+        getter = getattr(patient, "get_" + fld, None) or getattr(patient, "get" + fld.capitalize(), None)
+        val = getter() if callable(getter) else getattr(patient, fld, u"",)
+        if val:
+            parts.append(_safe_unicode(val))
+    if parts:
+        return u" ".join(parts)
+    return _safe_unicode(getattr(patient, "Title", lambda: patient.getId())())
+
+
+def _patient_mrn(patient):
+    """Get MRN from patient"""
+    if not patient:
+        return u""
+    for key in ("getMedicalRecordNumber", "getMRN"):
+        acc = getattr(patient, key, None)
+        if callable(acc):
+            try:
+                return _safe_unicode(acc())
+            except Exception:
+                pass
+    v = getattr(patient, "MedicalRecordNumber", None) or getattr(patient, "mrn", None)
+    if isinstance(v, basestring):
+        return _safe_unicode(v)
+    return u""
 
 
 @indexer(IRequestAnalysis)
 def getAncestorsUIDs(instance):
-    """Returns the UIDs of all the ancestors (Analysis Requests) this analysis
-    comes from
-    """
+    """Returns the UIDs of all the ancestors (Analysis Requests) this analysis comes from"""
     request = instance.getRequest()
     parents = map(lambda ar: api.get_uid(ar), request.getAncestors())
     return [api.get_uid(request)] + parents
 
 
 @indexer(IRequestAnalysis)
-def getMedicalRecordNumberValue(instance):
-    """Indexa el MRN del paciente asociado al AR"""
+def getPatientUID(obj):
+    patient = _get_patient(obj)
     try:
-        return safe_text(instance.getMedicalRecordNumberValue())
+        return api.get_uid(patient) if patient else None
     except Exception:
-        return u""
+        return None
 
 
 @indexer(IRequestAnalysis)
-def getPatientUID(instance):
-    """Indexa el UID del paciente asociado al AR"""
-    try:
-        patient = getattr(instance, "getPatient", lambda: None)()
-        return api.get_uid(patient) if patient else u""
-    except Exception:
-        return u""
+def getPatientFullName(obj):
+    patient = _get_patient(obj)
+    return _patient_fullname(patient) if patient else u""
 
 
 @indexer(IRequestAnalysis)
-def getPatientFullName(instance):
-    """Indexa el nombre completo del paciente asociado al AR"""
-    try:
-        return safe_text(instance.getPatientFullName())
-    except Exception:
-        return u""
+def getMedicalRecordNumberValue(obj):
+    patient = _get_patient(obj)
+    if patient:
+        mrn = _patient_mrn(patient)
+        if mrn:
+            return mrn
+    # fallback to AR attributes
+    for key in (
+        "getMedicalRecordNumberValue",
+        "MedicalRecordNumber",
+        "getMedicalRecordNumber",
+        "medical_record_number",
+        "mrn",
+    ):
+        acc = getattr(obj, key, None)
+        if callable(acc):
+            try:
+                return _safe_unicode(acc())
+            except Exception:
+                continue
+        elif isinstance(acc, basestring):
+            return _safe_unicode(acc)
+    return u""
