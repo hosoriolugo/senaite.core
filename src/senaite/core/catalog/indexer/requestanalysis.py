@@ -11,12 +11,8 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 # General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License along with
-# this program; if not, write to the Free Software Foundation, Inc., 51
-# Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-#
 # ------------------------------------------------------------------------
-# Adjusted: Added robust indexers for MRN and Patient fields in ARs
+# Adjusted: Robust indexers for MRN and Patient fields in ARs
 # ------------------------------------------------------------------------
 
 from __future__ import absolute_import
@@ -83,6 +79,8 @@ def _patient_fullname(patient):
     """Build robust patient fullname"""
     if not patient:
         return u""
+
+    # try standard fullname getters
     for key in ("getFullName", "getPatientFullName", "Title"):
         acc = getattr(patient, key, None)
         if callable(acc):
@@ -90,22 +88,30 @@ def _patient_fullname(patient):
                 return _safe_unicode(acc())
             except Exception:
                 pass
+        elif isinstance(acc, basestring):
+            return _safe_unicode(acc)
 
+    # build from 4 fields
     parts = []
-    for fld in ("firstname", "middlename", "lastname", "maternallastname"):
-        getter = getattr(patient, "get_" + fld, None) or getattr(patient, "get" + fld.capitalize(), None)
-        val = getter() if callable(getter) else getattr(patient, fld, u"",)
+    for fld in ("firstname", "middlename", "lastname", "maternal_lastname"):
+        val = getattr(patient, fld, None)
         if val:
             parts.append(_safe_unicode(val))
     if parts:
         return u" ".join(parts)
-    return _safe_unicode(getattr(patient, "Title", lambda: patient.getId())())
+
+    # fallback to id
+    try:
+        return _safe_unicode(patient.getId())
+    except Exception:
+        return u""
 
 
 def _patient_mrn(patient):
     """Get MRN from patient"""
     if not patient:
         return u""
+    # direct getters
     for key in ("getMedicalRecordNumber", "getMRN"):
         acc = getattr(patient, key, None)
         if callable(acc):
@@ -113,7 +119,8 @@ def _patient_mrn(patient):
                 return _safe_unicode(acc())
             except Exception:
                 pass
-    v = getattr(patient, "MedicalRecordNumber", None) or getattr(patient, "mrn", None)
+    # attribute fallback (prioritize `mrn`)
+    v = getattr(patient, "mrn", None) or getattr(patient, "MedicalRecordNumber", None)
     if isinstance(v, basestring):
         return _safe_unicode(v)
     return u""
