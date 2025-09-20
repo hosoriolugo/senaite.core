@@ -2,14 +2,14 @@
 #
 # This file is part of SENAITE.CORE.
 #
-# SENAITE.CORE is free software: you can redistribute it and/or modify it under
-# the terms of the GNU General Public License as published by the Free Software
+# SENAITE.CORE is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the Free Software
 # Foundation, version 2.
 #
 # SENAITE.CORE is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# General Public License for more details.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+# for more details.
 #
 # ------------------------------------------------------------------------
 # Adjusted: Robust indexers for MRN and Patient fields in ARs
@@ -35,6 +35,19 @@ def _safe_unicode(value):
             return api.safe_unicode(u"%s" % value)
         except Exception:
             return u""
+
+
+def _normalize_mrn(value):
+    """Normalize MRN value to string (handles dicts, strings, None)."""
+    if isinstance(value, dict):
+        for key in ("mrn", "MRN", "value", "text", "label", "title", "Title"):
+            v = value.get(key)
+            if isinstance(v, basestring) and v.strip():
+                return v.strip()
+        return u""
+    if isinstance(value, basestring):
+        return value.strip()
+    return u""
 
 
 def _get_patient(obj):
@@ -63,8 +76,9 @@ def _get_patient(obj):
                     mrn = acc()
                 except Exception:
                     mrn = None
-            elif isinstance(acc, basestring):
+            else:
                 mrn = acc
+            mrn = _normalize_mrn(mrn)
             if mrn:
                 try:
                     from senaite.patient.api import get_patient_by_mrn
@@ -95,6 +109,8 @@ def _patient_fullname(patient):
     parts = []
     for fld in ("firstname", "middlename", "lastname", "maternal_lastname"):
         val = getattr(patient, fld, None)
+        if isinstance(val, dict):
+            val = _normalize_mrn(val)
         if val:
             parts.append(_safe_unicode(val))
     if parts:
@@ -121,16 +137,14 @@ def _patient_mrn(patient):
                 pass
     # attribute fallback (prioritize `mrn`)
     v = getattr(patient, "mrn", None) or getattr(patient, "MedicalRecordNumber", None)
-    if isinstance(v, basestring):
-        return _safe_unicode(v)
-    return u""
+    return _normalize_mrn(v)
 
 
 @indexer(IRequestAnalysis)
 def getAncestorsUIDs(instance):
     """Returns the UIDs of all the ancestors (Analysis Requests) this analysis comes from"""
     request = instance.getRequest()
-    parents = map(lambda ar: api.get_uid(ar), request.getAncestors())
+    parents = list(map(lambda ar: api.get_uid(ar), request.getAncestors()))
     return [api.get_uid(request)] + parents
 
 
@@ -165,11 +179,15 @@ def getMedicalRecordNumberValue(obj):
         "mrn",
     ):
         acc = getattr(obj, key, None)
+        value = None
         if callable(acc):
             try:
-                return _safe_unicode(acc())
+                value = acc()
             except Exception:
                 continue
-        elif isinstance(acc, basestring):
-            return _safe_unicode(acc)
+        else:
+            value = acc
+        mrn = _normalize_mrn(value)
+        if mrn:
+            return mrn
     return u""
